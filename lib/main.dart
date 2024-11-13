@@ -3,6 +3,7 @@ import 'package:si_pintar/screen/auth/login_page.dart';
 import 'package:si_pintar/screen/auth/register_page.dart';
 import 'package:si_pintar/screen/home/home_page.dart';
 import 'package:si_pintar/screen/matkul/matkul_page.dart';
+import 'package:si_pintar/screen/matkul/matkul_page.dart';
 
 void main() {
   runApp(const MyApp());
