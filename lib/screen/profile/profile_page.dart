@@ -1,13 +1,32 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:si_pintar/data/dummy_data.dart';
+import 'package:si_pintar/models/user.dart';
+import 'package:si_pintar/providers/home_provider.dart';
 import 'package:si_pintar/screen/profile/profile_edit.dart';
+import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:si_pintar/screen/profile/update_password.dart';
 
-class ProfilePage extends StatelessWidget {
-  ProfilePage({super.key});
+class ProfilePage extends StatefulWidget {
+  const ProfilePage({super.key});
 
-  final profile = DummyData.profile;
+  @override
+  State<ProfilePage> createState() => _ProfilePageState();
+}
+
+class _ProfilePageState extends State<ProfilePage> {
+  late final User user;
+
+  @override
+  void initState() {
+    super.initState();
+    // user = User.fromJson(jsonDecode(DummyData.profile));
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<HomeProvider>().loadHomeData();
+    });
+  }
 
   final List<Map<String, dynamic>> menuLainnya = [
     {
@@ -42,147 +61,172 @@ class ProfilePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(),
-      body: Container(
-          margin: EdgeInsets.symmetric(horizontal: 16),
+    return Consumer<HomeProvider>(builder: (context, provider, child) {
+      if (provider.isLoading) {
+        return const Center(child: CircularProgressIndicator());
+      }
+
+      if (provider.error != null) {
+        print('Error: ${provider.error}');
+        return Center(
           child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Container(
-                margin: EdgeInsets.only(bottom: 32),
-                height: 100,
-                child: Row(
-                  children: [
-                    Align(
-                      alignment: Alignment.topLeft,
-                      child: CircleAvatar(
-                        radius: 50,
-                        backgroundImage: NetworkImage(profile['imageUrl']!),
-                      ),
-                    ),
-                    SizedBox(width: 20),
-                    Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          profile['fullName']!,
-                          style: TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        SizedBox(height: 10),
-                        Text(
-                          'NIM: ${profile['nim']!}',
-                          style: TextStyle(fontSize: 18),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
+              Text(provider.error!),
+              ElevatedButton(
+                onPressed: () => provider.loadHomeData(),
+                child: const Text('Retry'),
               ),
-              Column(
-                children: [
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      "Pengaturan",
-                      style:
-                          TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                    ),
-                  ),
-                  SizedBox(
-                    height: 12,
-                  ),
-                  Card(
-                    child: InkWell(
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => ProfileEditPage(),
+            ],
+          ),
+        );
+      }
+
+      return Scaffold(
+        appBar: AppBar(),
+        body: Container(
+            margin: const EdgeInsets.symmetric(horizontal: 16),
+            child: Column(
+              children: [
+                Container(
+                  margin: const EdgeInsets.only(bottom: 32),
+                  height: 100,
+                  child: Row(
+                    children: [
+                      Align(
+                        alignment: Alignment.topLeft,
+                        child: CircleAvatar(
+                            radius: 50,
+                            backgroundImage: NetworkImage(
+                                provider.user?.imageUrl ??
+                                    'https://via.placeholder.com/100'),
+                            onBackgroundImageError: (_, __) =>
+                                const Text("Error")),
+                      ),
+                      const SizedBox(width: 20),
+                      Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            provider.user?.full_name ?? "",
+                            style: const TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
-                        );
-                      },
-                      child: Container(
-                        width: double.infinity,
-                        padding: EdgeInsets.all(16),
-                        child: Text("Edit Profil"),
+                          const SizedBox(height: 10),
+                          Text(
+                            'NIM: ${provider.user?.nim?.toString() ?? ""}',
+                            style: const TextStyle(fontSize: 18),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                Column(
+                  children: [
+                    const Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        "Pengaturan",
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 16),
                       ),
                     ),
-                  ),
-                  SizedBox(
-                    height: 6,
-                  ),
-                  Card(
-                    child: InkWell(
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => UpdatePasswordPage(),
-                          ),
-                        );
-                      },
-                      child: Container(
-                        width: double.infinity,
-                        padding: EdgeInsets.all(16),
-                        child: Text("Ganti Password"),
+                    const SizedBox(
+                      height: 12,
+                    ),
+                    Card(
+                      child: InkWell(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const ProfileEditPage(),
+                            ),
+                          );
+                        },
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(16),
+                          child: const Text("Edit Profil"),
+                        ),
                       ),
                     ),
-                  ),
-                  SizedBox(
-                    height: 12,
-                  ),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      "Menu Lainnya",
-                      style:
-                          TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                    const SizedBox(
+                      height: 6,
                     ),
-                  ),
-                  SizedBox(
-                    height: 12,
-                  ),
-                  ...menuLainnya
-                      .map((menu) => Column(
-                            children: [
-                              Card(
-                                child: InkWell(
-                                  onTap: menu['onTap'],
-                                  child: Container(
-                                    width: double.infinity,
-                                    padding: EdgeInsets.all(16),
-                                    child: Row(
-                                      children: [
-                                        menu['icon'] != null
-                                            ? Icon(menu['icon'])
-                                            : Container(
-                                                width: 24,
-                                                height: 24,
-                                                decoration: BoxDecoration(
-                                                  shape: BoxShape.circle,
-                                                  color: Colors.grey[400],
+                    Card(
+                      child: InkWell(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const UpdatePasswordPage(),
+                            ),
+                          );
+                        },
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(16),
+                          child: const Text("Ganti Password"),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(
+                      height: 12,
+                    ),
+                    const Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        "Menu Lainnya",
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 16),
+                      ),
+                    ),
+                    const SizedBox(
+                      height: 12,
+                    ),
+                    ...menuLainnya
+                        .map((menu) => Column(
+                              children: [
+                                Card(
+                                  child: InkWell(
+                                    onTap: menu['onTap'] as void Function()?,
+                                    child: Container(
+                                      width: double.infinity,
+                                      padding: const EdgeInsets.all(16),
+                                      child: Row(
+                                        children: [
+                                          menu['icon'] != null
+                                              ? Icon(menu['icon'] as IconData)
+                                              : Container(
+                                                  width: 24,
+                                                  height: 24,
+                                                  decoration: BoxDecoration(
+                                                    shape: BoxShape.circle,
+                                                    color: Colors.grey[400],
+                                                  ),
                                                 ),
-                                              ),
-                                        SizedBox(
-                                          width: 12,
-                                        ),
-                                        Text(menu['title']),
-                                      ],
+                                          const SizedBox(
+                                            width: 12,
+                                          ),
+                                          Text(menu['title'] as String),
+                                        ],
+                                      ),
                                     ),
                                   ),
                                 ),
-                              ),
-                              SizedBox(height: 6),
-                            ],
-                          ))
-                      .toList(),
-                ],
-              )
-            ],
-          )),
-    );
+                                const SizedBox(height: 6),
+                              ],
+                            ))
+                        .toList(),
+                  ],
+                )
+              ],
+            )),
+      );
+    });
   }
 }

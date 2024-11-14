@@ -1,10 +1,15 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:si_pintar/data/dummy_data.dart';
+import 'package:si_pintar/models/class_model.dart';
 
 class SchedulePage extends StatelessWidget {
   SchedulePage({super.key});
 
-  final jadwalKuliah = DummyData.courses;
+  final List<ClassModel> jadwalKuliah = (jsonDecode(DummyData.classes) as List)
+      .map((item) => ClassModel.fromJson(item))
+      .toList();
 
   Color _getRandomColor() {
     final List<Color> colors = [
@@ -147,7 +152,7 @@ class SchedulePage extends StatelessWidget {
                                         ),
                                       ),
                                       child: Text(
-                                        'classSection ${jadwal.classSection}',
+                                        'Kelas ${jadwal.classSection}',
                                         style: TextStyle(
                                           color: Colors.deepPurple.shade800,
                                           fontWeight: FontWeight.w500,
