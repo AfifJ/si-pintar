@@ -1,5 +1,7 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:si_pintar/data/dummy_data.dart';
+// import 'package:provider/provider.dart';
 import 'package:si_pintar/providers/matkul_provider.dart';
 import 'package:si_pintar/screen/matkul/submit_task_page.dart';
 
@@ -13,23 +15,40 @@ class MatkulPage extends StatefulWidget {
 class _MatkulPageState extends State<MatkulPage> with TickerProviderStateMixin {
   late TabController _tabController;
   late Future<void> _matkulDataFuture;
+  late final List<Map<String, dynamic>> announcements;
+  late final List<Map<String, dynamic>> meetings;
+  late final List<Map<String, dynamic>> tasks;
 
   @override
   void initState() {
     super.initState();
+    final announcementsJson = jsonDecode(DummyData.announcements);
+    announcements = (announcementsJson as List)
+        .map((item) => Map<String, dynamic>.from(item))
+        .toList();
+
+    final meetingsJson = jsonDecode(DummyData.meetings);
+    meetings = (meetingsJson as List)
+        .map((item) => Map<String, dynamic>.from(item))
+        .toList();
+
+    final tasksJson = jsonDecode(DummyData.tasks);
+    tasks = (tasksJson as List)
+        .map((item) => Map<String, dynamic>.from(item))
+        .toList();
+
     _tabController = TabController(length: 3, vsync: this);
-    // Initialize _matkulDataFuture immediately after super.initState()
     _matkulDataFuture = _loadData();
   }
 
   Future<void> _loadData() async {
-    // Wrap in try-catch to handle potential initialization errors
-    try {
-      await context.read<MatkulProvider>().loadMatkulData();
-    } catch (e) {
-      // Handle or rethrow error as needed
-      rethrow;
-    }
+    // // Wrap in try-catch to handle potential initialization errors
+    // try {
+    //   // await context.read<MatkulProvider>().loadMatkulData();
+    // } catch (e) {
+    //   // Handle or rethrow error as needed
+    //   rethrow;
+    // }
   }
 
   @override
@@ -85,9 +104,9 @@ class _MatkulPageState extends State<MatkulPage> with TickerProviderStateMixin {
               onPressed: () async {
                 if (selectedStatus != null) {
                   try {
-                    await context
-                        .read<MatkulProvider>()
-                        .submitPresensi(selectedStatus!);
+                    // await context
+                    //     .read<MatkulProvider>()
+                    //     .submitPresensi(selectedStatus!);
                     Navigator.pop(context);
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
@@ -109,161 +128,119 @@ class _MatkulPageState extends State<MatkulPage> with TickerProviderStateMixin {
   }
 
   Widget _buildPengumumanTab() {
-    return Consumer<MatkulProvider>(
-      builder: (context, provider, child) {
-        if (provider.isLoading) {
-          return const Center(child: CircularProgressIndicator());
-        }
-
-        if (provider.error != null) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
+    return ListView.builder(
+      itemCount: announcements.length,
+      padding: const EdgeInsets.all(16),
+      itemBuilder: (context, index) {
+        final announcement = announcements[index];
+        return Card(
+          margin: const EdgeInsets.only(bottom: 12),
+          child: ListTile(
+            title: Text(
+              announcement['title'],
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(provider.error!),
-                ElevatedButton(
-                  onPressed: () => provider.loadMatkulData(),
-                  child: const Text('Retry'),
-                ),
+                Text(announcement['date']),
+                Text(announcement['content']),
+                if (announcement['hasAttachment'] == true)
+                  TextButton.icon(
+                    onPressed: () {
+                      // TODO: Handle download or view attachment
+                    },
+                    icon: const Icon(Icons.file_download, size: 18),
+                    label: const Text('Unduh Materi'),
+                  ),
               ],
             ),
-          );
-        }
-
-        return ListView.builder(
-          itemCount: provider.announcements.length,
-          padding: const EdgeInsets.all(16),
-          itemBuilder: (context, index) {
-            final announcement = provider.announcements[index];
-            return Card(
-              margin: const EdgeInsets.only(bottom: 12),
-              child: ListTile(
-                title: Text(
-                  announcement['title'],
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
-                subtitle: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(announcement['date']),
-                    Text(announcement['content']),
-                    if (announcement['hasAttachment'] == true)
-                      TextButton.icon(
-                        onPressed: () {
-                          // TODO: Handle download or view attachment
-                        },
-                        icon: const Icon(Icons.file_download, size: 18),
-                        label: const Text('Unduh Materi'),
-                      ),
-                  ],
-                ),
-                trailing: announcement['hasTask'] == true
-                    ? const Icon(Icons.assignment, color: Colors.orange)
-                    : announcement['hasAttachment'] == true
-                        ? const Icon(Icons.book, color: Colors.blue)
-                        : null,
-                onTap: announcement['hasTask'] == true
-                    ? () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (context) => SubmitTaskPage(
-                                  taskTitle: announcement['title'],
-                                  taskDescription: announcement['content'],
-                                  deadline: announcement['deadline'] ?? " ",
-                                )))
+            trailing: announcement['hasTask'] == true
+                ? const Icon(Icons.assignment, color: Colors.orange)
+                : announcement['hasAttachment'] == true
+                    ? const Icon(Icons.book, color: Colors.blue)
                     : null,
-              ),
-            );
-          },
+            onTap: announcement['hasTask'] == true
+                ? () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (context) => SubmitTaskPage(
+                              taskTitle: announcement['title'],
+                              taskDescription: announcement['content'],
+                              deadline: announcement['deadline'] ?? " ",
+                            )))
+                : null,
+          ),
         );
       },
     );
   }
 
-  // ... existing code ...
-
   Widget _buildPresensiTab() {
-    return Consumer<MatkulProvider>(
-      builder: (context, provider, child) {
-        if (provider.isLoading) {
-          return const Center(child: CircularProgressIndicator());
-        }
-
-        return ListView.builder(
-          itemCount: provider.meetings.length,
-          padding: const EdgeInsets.all(16),
-          itemBuilder: (context, index) {
-            final meeting = provider.meetings[index];
-            return Card(
-              margin: const EdgeInsets.only(bottom: 8),
-              child: ListTile(
-                leading: CircleAvatar(
-                  backgroundColor: Colors.blue[100],
-                  child: Text('${index + 1}'),
-                ),
-                title: Text(meeting['week'] as String), // Add type cast
-                subtitle: Text(meeting['date'] as String), // Add type cast
-                trailing: meeting['status'] != null
-                    ? Chip(
-                        label: Text(
-                          meeting['status'] as String, // Add type cast
-                          style: const TextStyle(color: Colors.white),
-                        ),
-                        backgroundColor: Colors.green,
-                      )
-                    : ElevatedButton(
-                        onPressed: () => _showPresensiDialog(context),
-                        child: const Text('Presensi'),
-                      ),
-              ),
-            );
-          },
+    return ListView.builder(
+      itemCount: meetings.length,
+      padding: const EdgeInsets.all(16),
+      itemBuilder: (context, index) {
+        final meeting = meetings[index];
+        return Card(
+          margin: const EdgeInsets.only(bottom: 8),
+          child: ListTile(
+            leading: CircleAvatar(
+              backgroundColor: Colors.blue[100],
+              child: Text('${index + 1}'),
+            ),
+            title: Text(meeting['week'] as String),
+            subtitle: Text(meeting['date'] as String),
+            trailing: meeting['status'] != null
+                ? Chip(
+                    label: Text(
+                      meeting['status'] as String,
+                      style: const TextStyle(color: Colors.white),
+                    ),
+                    backgroundColor: Colors.green,
+                  )
+                : ElevatedButton(
+                    onPressed: () => _showPresensiDialog(context),
+                    child: const Text('Presensi'),
+                  ),
+          ),
         );
       },
     );
   }
 
   Widget _buildTugasTab() {
-    return Consumer<MatkulProvider>(
-      builder: (context, provider, child) {
-        if (provider.isLoading) {
-          return const Center(child: CircularProgressIndicator());
-        }
+    return ListView.builder(
+      itemCount: tasks.length,
+      padding: const EdgeInsets.all(16),
+      itemBuilder: (context, index) {
+        final task = tasks[index];
+        final bool isSubmitted = task['status'] == 'Sudah dikumpulkan';
 
-        return ListView.builder(
-          itemCount: provider.tasks.length,
-          padding: const EdgeInsets.all(16),
-          itemBuilder: (context, index) {
-            final task = provider.tasks[index];
-            final bool isSubmitted = task['status'] == 'Sudah dikumpulkan';
-
-            return Card(
-              margin: const EdgeInsets.only(bottom: 12),
-              child: ListTile(
-                leading: Icon(
-                  isSubmitted ? Icons.check_circle : Icons.assignment,
-                  color: isSubmitted ? Colors.green : Colors.orange,
+        return Card(
+          margin: const EdgeInsets.only(bottom: 12),
+          child: ListTile(
+            leading: Icon(
+              isSubmitted ? Icons.check_circle : Icons.assignment,
+              color: isSubmitted ? Colors.green : Colors.orange,
+            ),
+            title: Text(
+              task['title'] as String,
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Deadline: ${task['deadline']}'),
+                Text(
+                  task['status'] as String,
+                  style: TextStyle(
+                    color: isSubmitted ? Colors.green : Colors.red,
+                  ),
                 ),
-                title: Text(
-                  task['title'] as String, // Add type cast
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
-                subtitle: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Deadline: ${task['deadline']}'),
-                    Text(
-                      task['status'] as String, // Add type cast
-                      style: TextStyle(
-                        color: isSubmitted ? Colors.green : Colors.red,
-                      ),
-                    ),
-                  ],
-                ),
-                // ... rest of the code ...
-              ),
-            );
-          },
+              ],
+            ),
+          ),
         );
       },
     );
@@ -300,41 +277,14 @@ class _MatkulPageState extends State<MatkulPage> with TickerProviderStateMixin {
           ],
         ),
       ),
-      body: FutureBuilder(
-          future: _matkulDataFuture,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
-            }
-
-            if (snapshot.hasError) {
-              return Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text('Error: ${snapshot.error}'),
-                    ElevatedButton(
-                      onPressed: () {
-                        setState(() {
-                          _matkulDataFuture = _loadData();
-                        });
-                      },
-                      child: const Text('Retry'),
-                    ),
-                  ],
-                ),
-              );
-            }
-
-            return TabBarView(
-              controller: _tabController,
-              children: [
-                _buildPengumumanTab(),
-                _buildPresensiTab(),
-                _buildTugasTab(),
-              ],
-            );
-          }),
+      body: TabBarView(
+        controller: _tabController,
+        children: [
+          _buildPengumumanTab(),
+          _buildPresensiTab(),
+          _buildTugasTab(),
+        ],
+      ),
     );
   }
 }
