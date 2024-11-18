@@ -3,10 +3,13 @@ import 'package:flutter/material.dart';
 import 'package:si_pintar/data/dummy_data.dart';
 // import 'package:provider/provider.dart';
 import 'package:si_pintar/providers/matkul_provider.dart';
+import 'package:si_pintar/screen/matkul/presensi_dialog.dart';
 import 'package:si_pintar/screen/matkul/submit_task_page.dart';
+import 'package:si_pintar/services/remote/class_service.dart';
 
 class MatkulPage extends StatefulWidget {
-  const MatkulPage({super.key});
+  final String courseId;
+  const MatkulPage({super.key, required this.courseId});
 
   @override
   State<MatkulPage> createState() => _MatkulPageState();
@@ -15,18 +18,14 @@ class MatkulPage extends StatefulWidget {
 class _MatkulPageState extends State<MatkulPage> with TickerProviderStateMixin {
   late TabController _tabController;
   late Future<void> _matkulDataFuture;
-  late final List<Map<String, dynamic>> announcements;
+  List<Map<String, dynamic>> announcements = [];
   late final List<Map<String, dynamic>> meetings;
   late final List<Map<String, dynamic>> tasks;
+  final ClassService _classService = ClassService();
 
   @override
   void initState() {
     super.initState();
-    final announcementsJson = jsonDecode(DummyData.announcements);
-    announcements = (announcementsJson as List)
-        .map((item) => Map<String, dynamic>.from(item))
-        .toList();
-
     final meetingsJson = jsonDecode(DummyData.meetings);
     meetings = (meetingsJson as List)
         .map((item) => Map<String, dynamic>.from(item))
@@ -42,13 +41,16 @@ class _MatkulPageState extends State<MatkulPage> with TickerProviderStateMixin {
   }
 
   Future<void> _loadData() async {
-    // // Wrap in try-catch to handle potential initialization errors
-    // try {
-    //   // await context.read<MatkulProvider>().loadMatkulData();
-    // } catch (e) {
-    //   // Handle or rethrow error as needed
-    //   rethrow;
-    // }
+    try {
+      final announcementsData =
+          await _classService.getClassAnnouncements(widget.courseId);
+      setState(() {
+        announcements = [announcementsData];
+      });
+    } catch (e) {
+      print('Error loading announcements: $e');
+      // You might want to show an error message to the user here
+    }
   }
 
   @override
@@ -57,120 +59,65 @@ class _MatkulPageState extends State<MatkulPage> with TickerProviderStateMixin {
     super.dispose();
   }
 
-  void _showPresensiDialog(BuildContext context) {
-    String? selectedStatus;
-
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Presensi'),
-          content: StatefulBuilder(
-            builder: (context, setState) {
-              return Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  RadioListTile<String>(
-                    title: const Text('Hadir'),
-                    value: 'Hadir',
-                    groupValue: selectedStatus,
-                    onChanged: (value) =>
-                        setState(() => selectedStatus = value),
-                  ),
-                  RadioListTile<String>(
-                    title: const Text('Izin'),
-                    value: 'Izin',
-                    groupValue: selectedStatus,
-                    onChanged: (value) =>
-                        setState(() => selectedStatus = value),
-                  ),
-                  RadioListTile<String>(
-                    title: const Text('Sakit'),
-                    value: 'Sakit',
-                    groupValue: selectedStatus,
-                    onChanged: (value) =>
-                        setState(() => selectedStatus = value),
-                  ),
-                ],
-              );
-            },
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Batal'),
-            ),
-            TextButton(
-              onPressed: () async {
-                if (selectedStatus != null) {
-                  try {
-                    // await context
-                    //     .read<MatkulProvider>()
-                    //     .submitPresensi(selectedStatus!);
-                    Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                          content: Text('Presensi berhasil disubmit')),
-                    );
-                  } catch (e) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text(e.toString())),
-                    );
-                  }
-                }
-              },
-              child: const Text('Submit'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
   Widget _buildPengumumanTab() {
-    return ListView.builder(
-      itemCount: announcements.length,
-      padding: const EdgeInsets.all(16),
-      itemBuilder: (context, index) {
-        final announcement = announcements[index];
-        return Card(
-          margin: const EdgeInsets.only(bottom: 12),
-          child: ListTile(
-            title: Text(
-              announcement['title'],
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-            subtitle: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(announcement['date']),
-                Text(announcement['content']),
-                if (announcement['hasAttachment'] == true)
-                  TextButton.icon(
-                    onPressed: () {
-                      // TODO: Handle download or view attachment
-                    },
-                    icon: const Icon(Icons.file_download, size: 18),
-                    label: const Text('Unduh Materi'),
-                  ),
-              ],
-            ),
-            trailing: announcement['hasTask'] == true
-                ? const Icon(Icons.assignment, color: Colors.orange)
-                : announcement['hasAttachment'] == true
-                    ? const Icon(Icons.book, color: Colors.blue)
+    return FutureBuilder(
+      future: _matkulDataFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        if (snapshot.hasError) {
+          return Center(child: Text('Error: ${snapshot.error}'));
+        }
+
+        return ListView.builder(
+          itemCount: announcements.length,
+          padding: const EdgeInsets.all(16),
+          itemBuilder: (context, index) {
+            final announcement = announcements[index];
+            return Card(
+              margin: const EdgeInsets.only(bottom: 12),
+              child: ListTile(
+                title: Text(
+                  announcement['material_title'] ?? '',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                subtitle: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(announcement['date'] ?? ''),
+                    Text(announcement['description'] ?? ''),
+                    if (announcement['has_attachment'] == true)
+                      TextButton.icon(
+                        onPressed: () {
+                          // TODO: Handle download using announcement['attachment_url']
+                        },
+                        icon: const Icon(Icons.file_download, size: 18),
+                        label: const Text('Unduh Materi'),
+                      ),
+                  ],
+                ),
+                trailing: announcement['has_task'] == true
+                    ? const Icon(Icons.assignment, color: Colors.orange)
+                    : announcement['has_attachment'] == true
+                        ? const Icon(Icons.book, color: Colors.blue)
+                        : null,
+                onTap: announcement['has_task'] == true
+                    ? () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) => SubmitTaskPage(
+                                  taskTitle:
+                                      announcement['material_title'] ?? '',
+                                  taskDescription:
+                                      announcement['description'] ?? '',
+                                  deadline: announcement['deadline'] ?? " ",
+                                )))
                     : null,
-            onTap: announcement['hasTask'] == true
-                ? () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (context) => SubmitTaskPage(
-                              taskTitle: announcement['title'],
-                              taskDescription: announcement['content'],
-                              deadline: announcement['deadline'] ?? " ",
-                            )))
-                : null,
-          ),
+              ),
+            );
+          },
         );
       },
     );
@@ -200,7 +147,7 @@ class _MatkulPageState extends State<MatkulPage> with TickerProviderStateMixin {
                     backgroundColor: Colors.green,
                   )
                 : ElevatedButton(
-                    onPressed: () => _showPresensiDialog(context),
+                    onPressed: () => ShowPresensiDialog(context),
                     child: const Text('Presensi'),
                   ),
           ),
@@ -250,11 +197,11 @@ class _MatkulPageState extends State<MatkulPage> with TickerProviderStateMixin {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Column(
+        title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Pemrograman Mobile',
+              widget.courseId + "halo",
               style: TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 20,

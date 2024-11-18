@@ -7,9 +7,8 @@ class User {
   String full_name;
   String role;
   int semester;
-  String imageUrl;
-  String nim;
-  String academicYear;
+  String image_url;
+  String academic_year;
 
   User(
     this.userId,
@@ -20,9 +19,8 @@ class User {
     this.full_name,
     this.role,
     this.semester, {
-    this.imageUrl = '',
-    this.nim = '',
-    this.academicYear = '',
+    this.image_url = '',
+    this.academic_year = '',
   });
 
   factory User.fromJson(Map<String, dynamic> json) {
@@ -38,9 +36,8 @@ class User {
       //     ? json['semester'] as int
       //     : int.parse(json['semester']),
       int.tryParse(json['semester'].toString()) ?? 1,
-      imageUrl: json['imageUrl'] as String? ?? '',
-      nim: json['nim'] as String? ?? '',
-      academicYear: json['academicYear'] as String? ?? '',
+      image_url: json['image_url'] as String? ?? '',
+      academic_year: json['academic_year'] as String? ?? '',
     );
   }
 
@@ -54,9 +51,8 @@ class User {
       'full_name': full_name,
       'role': role,
       'semester': semester.toString(),
-      'imageUrl': imageUrl,
-      'nim': nim,
-      'academicYear': academicYear,
+      'image_url': image_url,
+      'academic_year': academic_year,
     };
   }
 }

@@ -22,16 +22,17 @@ class Activity {
 
   factory Activity.fromJson(Map<String, dynamic> json) {
     return Activity(
-      title: json['title'],
-      subtitle: json['subtitle'],
+      title: json['title'] ?? 'Untitled',
+      subtitle: json['subtitle'] ?? 'No description',
       // color: Color(json['color']),
       // color: Color(
       //     int.parse(json['color'].substring(1, 7), radix: 16) + 0xFF000000),
       route: json['route'],
-      type: json['type'],
+      type: json['type'] ?? 'other',
       // type: ActivityType.values
       //     .firstWhere((e) => e.toString() == 'ActivityType.${json['type']}'),
-      dateTime: DateTime.parse(json['dateTime']),
+      dateTime:
+          DateTime.parse(json['dateTime'] ?? DateTime.now().toIso8601String()),
     );
   }
 

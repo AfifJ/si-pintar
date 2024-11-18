@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:si_pintar/models/user.dart';
+import 'package:si_pintar/screen/home/home_page.dart';
+import 'package:si_pintar/services/remote/user_service.dart';
+import 'package:si_pintar/services/session_manager.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -8,20 +12,64 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> {
+  final _formKey = GlobalKey<FormState>();
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+  bool _isLoading = false;
+  final _userService = UserService();
+
+  Future<void> _login() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() => _isLoading = true);
+
+    try {
+      final User user = await _userService.login(
+        _emailController.text,
+        _passwordController.text,
+      );
+
+      await SessionManager.saveLoginSession(
+        userId: user.userId,
+        email: user.email,
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Login berhasil')),
+        );
+
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (context) => const HomePage()),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString()),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: SingleChildScrollView(
         child: Container(
-          margin: EdgeInsets.symmetric(horizontal: 16),
+          margin: const EdgeInsets.symmetric(horizontal: 16),
           child: Column(
             children: [
               SizedBox(
                 height: 64,
               ),
               Image(
-                  image: NetworkImage(
-                      "https://images.blush.design/694a573ec09c9ed2ea069f5b13d9749e?w=920&auto=compress&cs=srgb"),
+                  image: NetworkImage("http://unsplash.it/200/200"),
                   width: 200),
               SizedBox(
                 height: 32,
@@ -39,58 +87,86 @@ class _LoginPageState extends State<LoginPage> {
               Text("Masukkan akun dan password yang telah disediakan"),
               SizedBox(height: 40),
               Form(
-                  child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    textAlign: TextAlign.start,
-                    "Email",
-                    style: TextStyle(fontWeight: FontWeight.w600),
-                  ),
-                  SizedBox(
-                    height: 8,
-                  ),
-                  TextFormField(decoration: FormDecoration("Masukkan email")),
-                  SizedBox(
-                    height: 12,
-                  ),
-                  Text(
-                    textAlign: TextAlign.start,
-                    "Password",
-                    style: TextStyle(fontWeight: FontWeight.w600),
-                  ),
-                  SizedBox(
-                    height: 8,
-                  ),
-                  TextFormField(
-                    obscureText: true,
-                    decoration: FormDecoration("Masukkan password"),
-                  ),
-                  SizedBox(
-                    height: 32,
-                  ),
-                  Container(
-                    width: MediaQuery.of(context).size.width,
-                    child: MaterialButton(
-                      padding: EdgeInsets.symmetric(vertical: 18),
-                      color: ThemeData().primaryColor,
-                      textColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.all(Radius.circular(12))),
-                      onPressed: () {},
-                      child: Text(
-                          style: TextStyle(
-                              fontWeight: FontWeight.w600, fontSize: 16),
-                          "Login"),
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      "Email",
+                      style: TextStyle(fontWeight: FontWeight.w600),
                     ),
-                  )
-                ],
-              ))
+                    const SizedBox(height: 8),
+                    TextFormField(
+                      controller: _emailController,
+                      decoration: FormDecoration("Masukkan email"),
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Email tidak boleh kosong';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    const Text(
+                      "Password",
+                      style: TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                    const SizedBox(height: 8),
+                    TextFormField(
+                      controller: _passwordController,
+                      obscureText: true,
+                      decoration: FormDecoration("Masukkan password"),
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Password tidak boleh kosong';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 32),
+                    SizedBox(
+                      width: MediaQuery.of(context).size.width,
+                      child: MaterialButton(
+                        padding: const EdgeInsets.symmetric(vertical: 18),
+                        color: Theme.of(context).primaryColor,
+                        textColor: Colors.white,
+                        shape: const RoundedRectangleBorder(
+                          borderRadius: BorderRadius.all(Radius.circular(12)),
+                        ),
+                        onPressed: _isLoading ? null : _login,
+                        child: _isLoading
+                            ? const SizedBox(
+                                height: 20,
+                                width: 20,
+                                child: CircularProgressIndicator(
+                                  color: Colors.white,
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Text(
+                                "Login",
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 16,
+                                ),
+                              ),
+                      ),
+                    )
+                  ],
+                ),
+              )
             ],
           ),
         ),
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
   }
 }
 

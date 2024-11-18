@@ -6,10 +6,14 @@ import 'package:si_pintar/models/activity.dart';
 import 'package:si_pintar/models/class_model.dart';
 import 'package:si_pintar/models/user.dart';
 import 'package:si_pintar/repository/user_repository.dart';
+import 'package:si_pintar/screen/auth/login_page.dart';
 import 'package:si_pintar/screen/matkul/matkul_page.dart';
 import 'package:si_pintar/screen/profile/profile_page.dart';
 import 'package:si_pintar/screen/schedule/schedule_page.dart';
 import 'package:intl/intl.dart';
+import 'package:si_pintar/services/remote/user_service.dart';
+import 'package:si_pintar/services/session_manager.dart';
+import 'package:si_pintar/services/remote/class_service.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -25,52 +29,88 @@ class _HomePageState extends State<HomePage> {
   User? _user;
   List<ClassModel> _classes = [];
   List<Activity> _activities = [];
+  final ClassService _classService = ClassService();
 
   @override
   void initState() {
     super.initState();
-    // Load data when page is initialized
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    // Check session first
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final isLoggedIn = await SessionManager.isLoggedIn();
+      if (!isLoggedIn && mounted) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (context) => const LoginPage()),
+        );
+        return;
+      }
       _loadHomeData();
     });
   }
 
   Future<void> _loadHomeData() async {
+    if (!mounted) return;
+
     setState(() {
       _isLoading = true;
       _error = null;
     });
 
     try {
-      // Simulate API call delay
-      await Future.delayed(const Duration(seconds: 2));
+      final userId = await SessionManager.getCurrentUserId();
+      // final userEmail = await SessionManager.getCurrentUserEmail();
+      print("USER ID: $userId");
 
-      // Mock data
-      final userRepo = UserRepository();
-      _user = await userRepo.getUser();
+      if (userId != null) {
+        final userService = UserService();
+        _user = await userService.getUserFromSession(userId.toString());
 
-      _classes = (jsonDecode(DummyData.classes) as List)
-          .map((json) => ClassModel.fromJson(json))
-          .toList();
+        try {
+          // Fetch classes using ClassService and handle potential null response
+          final classesResponse = await _classService.getClasses(_user!.userId);
+          print("\n=== PARSED CLASSES DATA ===");
+          for (var cls in classesResponse) {
+            print("Title: ${cls.title}");
+            print("Credits: ${cls.credits}");
+            print("Semester: ${cls.semester}");
+            print("-------------------");
+          }
+          setState(() {
+            _classes = classesResponse;
+          });
+        } catch (e) {
+          print('Error fetching classes: $e');
+          setState(() {
+            _classes = [];
+          });
+        }
+      }
 
-      _activities = (jsonDecode(DummyData.announcements) as List)
-          .map((json) => Activity.fromJson(json))
-          .toList();
-      // _activities = [
-      //   Activity(
-      //       title: "Mobile Programming",
-      //       subtitle: "Lecture",
-      //       type: "lecture",
-      //       dateTime: DateTime.now()),
-      // ];
+      // try {
+      //   if (DummyData.announcements != null) {
+      //     _activities = (jsonDecode(DummyData.announcements) as List)
+      //         .map((json) => Activity.fromJson(json))
+      //         .toList();
+      //   } else {
+      //     _activities = [];
+      //     print('Warning: DummyData.announcements is null');
+      //   }
+      // } catch (e) {
+      //   print('Error parsing activities: $e');
+      //   _activities = [];
+      // }
 
+      if (!mounted) return;
       setState(() {
         _isLoading = false;
       });
-    } catch (e) {
+    } catch (e, stackTrace) {
+      print('Error: $e');
+      print('Stack trace: $stackTrace');
+
+      if (!mounted) return;
       setState(() {
         _isLoading = false;
-        _error = e.toString();
+        _error = 'Error: $e\n\nStack Trace:\n${stackTrace.toString()}';
       });
     }
   }
@@ -89,10 +129,12 @@ class _HomePageState extends State<HomePage> {
     return Card(
       elevation: 4,
       child: InkWell(
-        onTap: () => Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => const MatkulPage()),
-        ),
+        onTap: () {
+          // Navigator.push(
+          //   context,
+          //   MaterialPageRoute(builder: (context) => const MatkulPage(courseId: ,)),
+          // );
+        },
         child: Container(
           width: 200,
           decoration: BoxDecoration(
@@ -176,7 +218,7 @@ class _HomePageState extends State<HomePage> {
         leading: CircleAvatar(
           backgroundColor: Colors.blue.shade100,
           child: Text(
-            course.title.substring(0, 1),
+            course.title.isNotEmpty ? course.title.substring(0, 1) : '-',
             style: TextStyle(color: Colors.blue.shade700),
           ),
         ),
@@ -184,12 +226,17 @@ class _HomePageState extends State<HomePage> {
           course.title,
           style: const TextStyle(fontWeight: FontWeight.bold),
         ),
-        subtitle: Text('${course.credits} SKS - Semester ${course.semester}'),
-        trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-        onTap: () => Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => const MatkulPage()),
+        subtitle: Text(
+          '${course.credits ?? 0} SKS - Semester ${course.semester ?? 0}',
         ),
+        trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+        onTap: () {
+          print("iddddd" + course.classId);
+          Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (context) => MatkulPage(courseId: course.classId)));
+        },
       ),
     );
   }
@@ -198,23 +245,28 @@ class _HomePageState extends State<HomePage> {
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
-    // if (_error != null) {
-    //   return Center(
-    //     child: Column(
-    //       mainAxisAlignment: MainAxisAlignment.center,
-    //       children: [
-    //         Text(_error!),
-    //         ElevatedButton(
-    //           onPressed: _loadHomeData,
-    //           child: const Text('Retry'),
-    //         ),
-    //       ],
-    //     ),
-    //   );
-    // }
 
-    if (_user == null) {
-      return const Center(child: Text('No user data'));
+    if (_error != null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: SingleChildScrollView(
+                child: Text(
+                  _error!,
+                  style: const TextStyle(color: Colors.red),
+                ),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: refreshData,
+              child: const Text('Coba Lagi'),
+            ),
+          ],
+        ),
+      );
     }
 
     return RefreshIndicator(
@@ -260,7 +312,7 @@ class _HomePageState extends State<HomePage> {
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
                         Text(
-                          'Selamat Datang\n${_user!.full_name}!',
+                          'Selamat Datang\n${_user?.email}!',
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 24,
@@ -268,7 +320,7 @@ class _HomePageState extends State<HomePage> {
                           ),
                         ),
                         Text(
-                          "Semester ${_user!.semester} - ${_user!.academicYear}",
+                          "Semester ${_user?.semester} - ${_user?.academic_year}",
                           style: TextStyle(color: Colors.blue.shade100),
                         ),
                       ],
@@ -282,7 +334,7 @@ class _HomePageState extends State<HomePage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const SizedBox(height: 24),
+                  // const SizedBox(height: 24),
                   const Text(
                     "Mata Kuliah",
                     style: TextStyle(
@@ -290,7 +342,7 @@ class _HomePageState extends State<HomePage> {
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  // const SizedBox(height: 8),
                   ListView.builder(
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
@@ -337,11 +389,11 @@ class _HomePageState extends State<HomePage> {
           NavigationDestination(
             icon: Builder(
               builder: (context) {
-                return _user?.imageUrl != null && _user!.imageUrl.isNotEmpty
+                return _user?.image_url != null && _user!.image_url.isNotEmpty
                     ? ClipRRect(
                         borderRadius: BorderRadius.circular(12),
                         child: Image.network(
-                          _user!.imageUrl,
+                          _user!.image_url,
                           width: 24,
                           height: 24,
                           fit: BoxFit.cover,

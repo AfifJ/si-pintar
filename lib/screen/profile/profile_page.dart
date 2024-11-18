@@ -6,6 +6,8 @@ import 'package:si_pintar/models/user.dart';
 import 'package:si_pintar/screen/profile/profile_edit.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:si_pintar/screen/profile/update_password.dart';
+import 'package:si_pintar/services/session_manager.dart';
+import 'package:si_pintar/screen/auth/login_page.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -54,6 +56,52 @@ class _ProfilePageState extends State<ProfilePage> {
     },
   ];
 
+  Future<void> _handleLogout() async {
+    // Show confirmation dialog
+    bool? confirmLogout = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Konfirmasi Logout'),
+          content: const Text('Apakah Anda yakin ingin keluar?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Batal'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Ya, Keluar'),
+            ),
+          ],
+        );
+      },
+    );
+
+    // If user confirms logout
+    if (confirmLogout == true) {
+      try {
+        await SessionManager.clearSession();
+
+        if (mounted) {
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (context) => const LoginPage()),
+            (route) => false,
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Gagal logout. Silakan coba lagi.'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -71,7 +119,7 @@ class _ProfilePageState extends State<ProfilePage> {
                       alignment: Alignment.topLeft,
                       child: CircleAvatar(
                           radius: 50,
-                          backgroundImage: NetworkImage(user.imageUrl
+                          backgroundImage: NetworkImage(user.image_url
 
                               // ??'https://via.placeholder.com/100'
                               ),
@@ -91,7 +139,7 @@ class _ProfilePageState extends State<ProfilePage> {
                         ),
                         const SizedBox(height: 10),
                         Text(
-                          'NIM: ${user.nim.toString()}',
+                          'NIM: ${user.npm.toString()}',
                           style: const TextStyle(fontSize: 18),
                         ),
                       ],
@@ -146,6 +194,19 @@ class _ProfilePageState extends State<ProfilePage> {
                         width: double.infinity,
                         padding: const EdgeInsets.all(16),
                         child: const Text("Ganti Password"),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(
+                    height: 6,
+                  ),
+                  Card(
+                    child: InkWell(
+                      onTap: _handleLogout,
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(16),
+                        child: const Text("Logout"),
                       ),
                     ),
                   ),

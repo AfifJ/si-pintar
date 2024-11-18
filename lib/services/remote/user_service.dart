@@ -11,23 +11,23 @@ class UserService {
 
   Future<User> login(String email, String password) async {
     try {
-      // Make API call to login
-      final response = await http.post(
-        Uri.parse('${ApiConstants.restApiBaseUrl}/auth/login'),
+      final response = await http.get(
+        Uri.parse(
+            '${ApiConstants.restApiBaseUrl}/users?username=eq.$email&password=eq.$password'),
         headers: ApiConstants.defaultHeaders,
-        body: jsonEncode({
-          'email': email,
-          'password': password,
-        }),
       );
 
       if (response.statusCode != 200) {
         throw Exception('Failed to login');
       }
 
-      // Parse response body
-      return User.fromJson(jsonDecode(DummyData.profile));
-      // return User.fromJson(jsonDecode(response.body));
+      final List<dynamic> responseData = jsonDecode(response.body);
+      if (responseData.isEmpty) {
+        throw Exception('User not found');
+      }
+
+      // Take the first user from the array
+      return User.fromJson(responseData[0]);
     } catch (e) {
       throw Exception('Failed to login: $e');
     }
@@ -86,6 +86,29 @@ class UserService {
       }
     } catch (e) {
       throw Exception('Failed to logout: $e');
+    }
+  }
+
+  Future<User> getUserFromSession(String userId) async {
+    try {
+      final response = await http.get(
+        Uri.parse('${ApiConstants.restApiBaseUrl}/users?user_id=eq.$userId'),
+        headers: ApiConstants.defaultHeaders,
+      );
+
+      if (response.statusCode != 200) {
+        throw Exception('Failed to get user data');
+      }
+
+      final List<dynamic> responseData = jsonDecode(response.body);
+      if (responseData.isEmpty) {
+        throw Exception('User not found');
+      }
+
+      // Return actual data from the database instead of dummy data
+      return User.fromJson(responseData[0]);
+    } catch (e) {
+      throw Exception('Failed to get user data: $e');
     }
   }
 }
