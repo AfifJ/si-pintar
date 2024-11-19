@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
+import 'package:si_pintar/services/remote/user_service.dart';
+import 'package:si_pintar/services/session_manager.dart';
 
 class ProfileEditPage extends StatefulWidget {
   const ProfileEditPage({super.key});
@@ -18,12 +20,31 @@ class _ProfileEditPageState extends State<ProfileEditPage> {
   File? _imageFile;
   final ImagePicker _picker = ImagePicker();
 
+  final UserService _userService = UserService();
+  Map<String, dynamic>? user;
   Future<void> _pickImage() async {
     final XFile? pickedFile =
         await _picker.pickImage(source: ImageSource.gallery);
     if (pickedFile != null) {
       setState(() {
         _imageFile = File(pickedFile.path);
+      });
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUser();
+  }
+
+  Future<void> _loadUser() async {
+    final userId = await SessionManager.getCurrentUserId();
+    if (userId != null) {
+      final userData = await _userService.getUserFromSession(userId);
+      setState(() {
+        user = userData.toJson();
+        _usernameController.text = user?['username'] ?? '';
       });
     }
   }
@@ -46,8 +67,8 @@ class _ProfileEditPageState extends State<ProfileEditPage> {
                     radius: 50,
                     backgroundImage: _imageFile != null
                         ? FileImage(_imageFile!)
-                        : const NetworkImage('https://unsplash.it/100/100')
-                            as ImageProvider,
+                        : NetworkImage(user?['image_url'] ??
+                            'https://via.placeholder.com/100') as ImageProvider,
                   ),
                   Positioned(
                     bottom: 0,

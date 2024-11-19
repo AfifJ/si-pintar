@@ -1,16 +1,19 @@
 import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:si_pintar/data/dummy_data.dart';
 import 'package:si_pintar/models/activity.dart';
 import 'package:si_pintar/models/class_model.dart';
 import 'package:si_pintar/models/user.dart';
-import 'package:si_pintar/repository/user_repository.dart';
 import 'package:si_pintar/screen/auth/login_page.dart';
 import 'package:si_pintar/screen/matkul/matkul_page.dart';
+import 'package:si_pintar/screen/nilai/nilai_page.dart';
 import 'package:si_pintar/screen/profile/profile_page.dart';
 import 'package:si_pintar/screen/schedule/schedule_page.dart';
+import 'package:si_pintar/screen/ukt/ukt_page.dart';
+import 'package:si_pintar/screen/nilai/nilai_page.dart';
 import 'package:intl/intl.dart';
+import 'package:si_pintar/services/conversion/convert_currency.dart';
+import 'package:si_pintar/services/conversion/convert_time.dart';
 import 'package:si_pintar/services/remote/user_service.dart';
 import 'package:si_pintar/services/session_manager.dart';
 import 'package:si_pintar/services/remote/class_service.dart';
@@ -31,20 +34,40 @@ class _HomePageState extends State<HomePage> {
   List<Activity> _activities = [];
   final ClassService _classService = ClassService();
 
+  // Add PageController
+  final PageController _pageController = PageController();
+
   @override
   void initState() {
     super.initState();
-    // Check session first
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      final isLoggedIn = await SessionManager.isLoggedIn();
-      if (!isLoggedIn && mounted) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (context) => const LoginPage()),
-        );
-        return;
-      }
-      _loadHomeData();
+    // Check session when page is initialized
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkSessionAndLoadData();
     });
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _checkSessionAndLoadData() async {
+    final userId = await SessionManager.getCurrentUserId();
+    print('Current user ID: $userId'); // Print user ID for debugging
+
+    if (userId == null) {
+      print('No user logged in - redirecting to login page');
+      // Redirect to login if session is invalid
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const LoginPage()),
+      );
+    } else {
+      print('User logged in with ID: $userId - loading home data');
+      // Load home data if session is valid
+      _loadHomeData();
+    }
   }
 
   Future<void> _loadHomeData() async {
@@ -57,47 +80,28 @@ class _HomePageState extends State<HomePage> {
 
     try {
       final userId = await SessionManager.getCurrentUserId();
-      // final userEmail = await SessionManager.getCurrentUserEmail();
-      print("USER ID: $userId");
+      if (!mounted) return;
 
       if (userId != null) {
         final userService = UserService();
         _user = await userService.getUserFromSession(userId.toString());
+        if (!mounted) return;
 
         try {
-          // Fetch classes using ClassService and handle potential null response
           final classesResponse = await _classService.getClasses(_user!.userId);
-          print("\n=== PARSED CLASSES DATA ===");
-          for (var cls in classesResponse) {
-            print("Title: ${cls.title}");
-            print("Credits: ${cls.credits}");
-            print("Semester: ${cls.semester}");
-            print("-------------------");
-          }
+          if (!mounted) return;
+
           setState(() {
             _classes = classesResponse;
           });
         } catch (e) {
           print('Error fetching classes: $e');
+          if (!mounted) return;
           setState(() {
             _classes = [];
           });
         }
       }
-
-      // try {
-      //   if (DummyData.announcements != null) {
-      //     _activities = (jsonDecode(DummyData.announcements) as List)
-      //         .map((json) => Activity.fromJson(json))
-      //         .toList();
-      //   } else {
-      //     _activities = [];
-      //     print('Warning: DummyData.announcements is null');
-      //   }
-      // } catch (e) {
-      //   print('Error parsing activities: $e');
-      //   _activities = [];
-      // }
 
       if (!mounted) return;
       setState(() {
@@ -122,6 +126,12 @@ class _HomePageState extends State<HomePage> {
   void _onItemTapped(int index) {
     setState(() {
       _selectedIndex = index;
+      // Animate to the selected page when tapping bottom nav items
+      _pageController.animateToPage(
+        index,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
     });
   }
 
@@ -212,30 +222,49 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildCourseCard(ClassModel course) {
-    return Card(
-      elevation: 2,
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
       child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: Colors.blue.shade100,
+        leading: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Colors.blue.shade50,
+            borderRadius: BorderRadius.circular(8),
+          ),
           child: Text(
             course.title.isNotEmpty ? course.title.substring(0, 1) : '-',
-            style: TextStyle(color: Colors.blue.shade700),
+            style: TextStyle(
+              color: Colors.blue.shade700,
+              fontWeight: FontWeight.bold,
+            ),
           ),
         ),
         title: Text(
           course.title,
-          style: const TextStyle(fontWeight: FontWeight.bold),
+          style: const TextStyle(
+            fontWeight: FontWeight.w500,
+          ),
         ),
-        subtitle: Text(
-          '${course.credits ?? 0} SKS - Semester ${course.semester ?? 0}',
-        ),
-        trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+        subtitle: Text('${course.credits} SKS - Semester ${course.semester}'),
+        trailing: const Icon(Icons.chevron_right),
         onTap: () {
-          print("iddddd" + course.classId);
           Navigator.push(
-              context,
-              MaterialPageRoute(
-                  builder: (context) => MatkulPage(courseId: course.classId)));
+            context,
+            MaterialPageRoute(
+              builder: (context) => MatkulPage(courseId: course.classId),
+            ),
+          );
         },
       ),
     );
@@ -243,7 +272,72 @@ class _HomePageState extends State<HomePage> {
 
   Widget _buildHomeContent() {
     if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header skeleton
+            Container(
+              height: 200,
+              width: double.infinity,
+              color: Colors.grey[200],
+            ),
+            const SizedBox(height: 12),
+
+            // Quick actions skeleton
+            Row(
+              children: List.generate(
+                2,
+                (index) => Expanded(
+                  child: Container(
+                    margin: EdgeInsets.only(
+                      left: index == 0 ? 16 : 8,
+                      right: index == 1 ? 16 : 8,
+                    ),
+                    height: 80,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[200],
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
+            // Course list skeleton
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 120,
+                    height: 24,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[200],
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  // Course card skeletons
+                  ...List.generate(
+                    4,
+                    (index) => Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      height: 72,
+                      decoration: BoxDecoration(
+                        color: Colors.grey[200],
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
     }
 
     if (_error != null) {
@@ -329,6 +423,114 @@ class _HomePageState extends State<HomePage> {
                 ],
               ),
             ),
+            SizedBox(
+              height: 12,
+            ),
+            Row(
+              children: [
+                Expanded(
+                  child: IntrinsicHeight(
+                    child: Container(
+                      margin: const EdgeInsets.only(left: 16, right: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.1),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: ListTile(
+                        leading: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.blue.shade50,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Icon(
+                            Icons.payment_outlined,
+                            color: Colors.blue.shade700,
+                          ),
+                        ),
+                        title: const Text(
+                          'Bayar UKT',
+                          maxLines: 1,
+                          style: TextStyle(
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        subtitle: const Text(
+                          'Pembayaran UKT',
+                          maxLines: 2,
+                        ),
+                        // trailing: const Icon(Icons.chevron_right),
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (context) => const UktPage()),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: IntrinsicHeight(
+                    child: Container(
+                      margin: const EdgeInsets.only(left: 8, right: 16),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.1),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: ListTile(
+                        leading: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.blue.shade50,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Icon(
+                            Icons.calculate_outlined,
+                            color: Colors.blue.shade700,
+                          ),
+                        ),
+                        title: const Text(
+                          'Nilai',
+                          maxLines: 1,
+                          style: TextStyle(
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        subtitle: const Text(
+                          'Kalkulasi IPK',
+                          maxLines: 2,
+                        ),
+                        // trailing: const Icon(Icons.chevron_right),
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (context) => NilaiPage()),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
             Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
@@ -364,51 +566,125 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: IndexedStack(
-        index: _selectedIndex,
+      body: PageView(
+        controller: _pageController,
+        onPageChanged: (index) {
+          setState(() {
+            _selectedIndex = index;
+          });
+        },
         children: [
           _buildHomeContent(),
           SchedulePage(),
           ProfilePage(),
         ],
       ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _selectedIndex,
-        onDestinationSelected: _onItemTapped,
-        destinations: [
-          const NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home),
-            label: 'Home',
-          ),
-          const NavigationDestination(
-            icon: Icon(Icons.calendar_today_outlined),
-            selectedIcon: Icon(Icons.calendar_today),
-            label: 'Jadwal',
-          ),
-          NavigationDestination(
-            icon: Builder(
-              builder: (context) {
-                return _user?.image_url != null && _user!.image_url.isNotEmpty
-                    ? ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
-                        child: Image.network(
-                          _user!.image_url,
-                          width: 24,
-                          height: 24,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) {
-                            return const Icon(Icons.person_outline);
-                          },
-                        ),
-                      )
-                    : const Icon(Icons.person_outline);
-              },
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 10,
+              offset: const Offset(0, -5),
             ),
-            selectedIcon: const Icon(Icons.person),
-            label: 'Profil',
-          ),
-        ],
+          ],
+        ),
+        child: NavigationBar(
+          height: 65,
+          elevation: 0,
+          selectedIndex: _selectedIndex,
+          onDestinationSelected: _onItemTapped,
+          backgroundColor: Colors.white,
+          indicatorColor: Colors.blue.shade50,
+          labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+          animationDuration: const Duration(milliseconds: 500),
+          destinations: [
+            NavigationDestination(
+              icon: Icon(
+                Icons.home_outlined,
+                color: _selectedIndex == 0 ? Colors.blue.shade700 : Colors.grey,
+              ),
+              selectedIcon: Icon(Icons.home, color: Colors.blue.shade700),
+              label: 'Beranda',
+            ),
+            NavigationDestination(
+              icon: Icon(
+                Icons.calendar_today_outlined,
+                color: _selectedIndex == 1 ? Colors.blue.shade700 : Colors.grey,
+              ),
+              selectedIcon:
+                  Icon(Icons.calendar_today, color: Colors.blue.shade700),
+              label: 'Jadwal',
+            ),
+            NavigationDestination(
+              icon: Builder(
+                builder: (context) {
+                  return Container(
+                    padding: const EdgeInsets.all(2),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: _selectedIndex == 2
+                            ? Colors.blue.shade700
+                            : Colors.transparent,
+                        width: 2,
+                      ),
+                    ),
+                    child: ClipOval(
+                      child: _user?.image_url != null &&
+                              _user!.image_url.isNotEmpty
+                          ? Image.network(
+                              _user!.image_url,
+                              width: 24,
+                              height: 24,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) {
+                                return Container(
+                                  width: 24,
+                                  height: 24,
+                                  alignment: Alignment.center,
+                                  color: Colors.blue.shade50,
+                                  child: Text(
+                                    _user?.full_name.isNotEmpty == true
+                                        ? _user!.full_name[0].toUpperCase()
+                                        : '?',
+                                    style: TextStyle(
+                                      color: _selectedIndex == 2
+                                          ? Colors.blue.shade700
+                                          : Colors.grey,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                );
+                              },
+                            )
+                          : Container(
+                              width: 24,
+                              height: 24,
+                              alignment: Alignment.center,
+                              color: Colors.blue.shade50,
+                              child: Text(
+                                _user?.full_name.isNotEmpty == true
+                                    ? _user!.full_name[0].toUpperCase()
+                                    : '?',
+                                style: TextStyle(
+                                  color: _selectedIndex == 2
+                                      ? Colors.blue.shade700
+                                      : Colors.grey,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ),
+                    ),
+                  );
+                },
+              ),
+              label: 'Profil',
+            ),
+          ],
+        ),
       ),
     );
   }

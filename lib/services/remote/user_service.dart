@@ -33,6 +33,28 @@ class UserService {
     }
   }
 
+  // Future<Map<String, dynamic>> getUser(String userId) async {
+  //   try {
+  //     final response = await http.get(
+  //       Uri.parse('${ApiConstants.restApiBaseUrl}/users?user_id=eq.$userId'),
+  //       headers: ApiConstants.defaultHeaders,
+  //     );
+
+  //     if (response.statusCode != 200) {
+  //       throw Exception('Failed to get user');
+  //     }
+
+  //     final List<dynamic> responseData = jsonDecode(response.body);
+  //     if (responseData.isEmpty) {
+  //       throw Exception('User not found');
+  //     }
+
+  //     return responseData[0];
+  //   } catch (e) {
+  //     throw Exception('Failed to get user: $e');
+  //   }
+  // }
+
   Future<User> updateProfile(String userId, User user) async {
     try {
       final response = await http.put(

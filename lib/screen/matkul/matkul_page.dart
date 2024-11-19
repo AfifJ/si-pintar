@@ -1,11 +1,10 @@
-import 'dart:convert';
+// import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:si_pintar/data/dummy_data.dart';
-// import 'package:provider/provider.dart';
-import 'package:si_pintar/providers/matkul_provider.dart';
+// import 'package:si_pintar/data/dummy_data.dart';
 import 'package:si_pintar/screen/matkul/presensi_dialog.dart';
 import 'package:si_pintar/screen/matkul/submit_task_page.dart';
 import 'package:si_pintar/services/remote/class_service.dart';
+import 'package:si_pintar/services/session_manager.dart';
 
 class MatkulPage extends StatefulWidget {
   final String courseId;
@@ -19,33 +18,67 @@ class _MatkulPageState extends State<MatkulPage> with TickerProviderStateMixin {
   late TabController _tabController;
   late Future<void> _matkulDataFuture;
   List<Map<String, dynamic>> announcements = [];
-  late final List<Map<String, dynamic>> meetings;
-  late final List<Map<String, dynamic>> tasks;
+  List<Map<String, dynamic>> attendances = [];
+  Map<String, dynamic> classDetails = {};
   final ClassService _classService = ClassService();
+  String? userId;
 
   @override
   void initState() {
     super.initState();
-    final meetingsJson = jsonDecode(DummyData.meetings);
-    meetings = (meetingsJson as List)
-        .map((item) => Map<String, dynamic>.from(item))
-        .toList();
+    // final meetingsJson = jsonDecode(DummyData.meetings);
+    // meetings = (meetingsJson as List)
+    //     .map((item) => Map<String, dynamic>.from(item))
+    //     .toList();
 
-    final tasksJson = jsonDecode(DummyData.tasks);
-    tasks = (tasksJson as List)
-        .map((item) => Map<String, dynamic>.from(item))
-        .toList();
+    _loadClassDetails();
+    _loadAttendances();
+    // _loadAssignments();
+    // final tasksJson = jsonDecode(DummyData.tasks);
+    // tasks = (tasksJson as List)
+    //     .map((item) => Map<String, dynamic>.from(item))
+    //     .toList();
 
     _tabController = TabController(length: 3, vsync: this);
     _matkulDataFuture = _loadData();
   }
 
+  Future<void> _loadClassDetails() async {
+    final classDetailsData =
+        await _classService.getClassDetails(widget.courseId);
+    setState(() {
+      classDetails = classDetailsData;
+    });
+  }
+
+  Future<void> _loadAttendances() async {
+    try {
+      userId = await SessionManager.getCurrentUserId();
+      if (userId == null) {
+        throw Exception('User not logged in');
+      }
+
+      final attendancesData =
+          await _classService.getClassAttendances(widget.courseId, userId!);
+      setState(() {
+        attendances = attendancesData;
+      });
+    } catch (e) {
+      print('Error loading attendances: $e');
+    }
+  }
+
   Future<void> _loadData() async {
     try {
+      userId = await SessionManager.getCurrentUserId();
+      if (userId == null) {
+        throw Exception('User not logged in');
+      }
+
       final announcementsData =
-          await _classService.getClassAnnouncements(widget.courseId);
+          await _classService.getClassAnnouncements(widget.courseId, userId!);
       setState(() {
-        announcements = [announcementsData];
+        announcements = announcementsData;
       });
     } catch (e) {
       print('Error loading announcements: $e');
@@ -125,10 +158,10 @@ class _MatkulPageState extends State<MatkulPage> with TickerProviderStateMixin {
 
   Widget _buildPresensiTab() {
     return ListView.builder(
-      itemCount: meetings.length,
+      itemCount: attendances.length,
       padding: const EdgeInsets.all(16),
       itemBuilder: (context, index) {
-        final meeting = meetings[index];
+        final meeting = attendances[index];
         return Card(
           margin: const EdgeInsets.only(bottom: 8),
           child: ListTile(
@@ -136,12 +169,12 @@ class _MatkulPageState extends State<MatkulPage> with TickerProviderStateMixin {
               backgroundColor: Colors.blue[100],
               child: Text('${index + 1}'),
             ),
-            title: Text(meeting['week'] as String),
-            subtitle: Text(meeting['date'] as String),
-            trailing: meeting['status'] != null
+            title: Text(meeting['attendance_date'] as String),
+            subtitle: Text(meeting['class_title'] as String),
+            trailing: meeting['attendance_status'] != null
                 ? Chip(
                     label: Text(
-                      meeting['status'] as String,
+                      meeting['attendance_status'] as String,
                       style: const TextStyle(color: Colors.white),
                     ),
                     backgroundColor: Colors.green,
@@ -157,37 +190,59 @@ class _MatkulPageState extends State<MatkulPage> with TickerProviderStateMixin {
   }
 
   Widget _buildTugasTab() {
-    return ListView.builder(
-      itemCount: tasks.length,
-      padding: const EdgeInsets.all(16),
-      itemBuilder: (context, index) {
-        final task = tasks[index];
-        final bool isSubmitted = task['status'] == 'Sudah dikumpulkan';
+    return FutureBuilder(
+      future: _matkulDataFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
 
-        return Card(
-          margin: const EdgeInsets.only(bottom: 12),
-          child: ListTile(
-            leading: Icon(
-              isSubmitted ? Icons.check_circle : Icons.assignment,
-              color: isSubmitted ? Colors.green : Colors.orange,
-            ),
-            title: Text(
-              task['title'] as String,
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-            subtitle: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Deadline: ${task['deadline']}'),
-                Text(
-                  task['status'] as String,
-                  style: TextStyle(
-                    color: isSubmitted ? Colors.green : Colors.red,
+        if (snapshot.hasError) {
+          return Center(child: Text('Error: ${snapshot.error}'));
+        }
+
+        // Filter announcements where has_task is true
+        final tasks = announcements
+            .where((announcement) => announcement['has_task'] == true)
+            .toList();
+
+        return ListView.builder(
+          itemCount: tasks.length,
+          padding: const EdgeInsets.all(16),
+          itemBuilder: (context, index) {
+            final task = tasks[index];
+
+            return Card(
+              margin: const EdgeInsets.only(bottom: 12),
+              child: ListTile(
+                leading: const Icon(
+                  Icons.assignment,
+                  color: Colors.orange,
+                ),
+                title: Text(
+                  task['material_title'] ?? '',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                subtitle: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Deadline: ${task['deadline'] ?? 'Not set'}'),
+                    Text(task['description'] ?? ''),
+                  ],
+                ),
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => SubmitTaskPage(
+                      taskTitle: task['material_title'] ?? '',
+                      taskDescription: task['description'] ?? '',
+                      deadline: task['deadline'] ?? " ",
+                    ),
                   ),
                 ),
-              ],
-            ),
-          ),
+              ),
+            );
+          },
         );
       },
     );
@@ -201,14 +256,14 @@ class _MatkulPageState extends State<MatkulPage> with TickerProviderStateMixin {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              widget.courseId + "halo",
+              classDetails['title'] ?? '',
               style: TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 20,
               ),
             ),
             Text(
-              'Semester 5 • 3 SKS',
+              'Semester ${classDetails['semester']} • ${classDetails['credits']} SKS',
               style: TextStyle(
                 fontSize: 14,
               ),

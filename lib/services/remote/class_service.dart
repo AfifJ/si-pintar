@@ -22,58 +22,21 @@ class ClassService {
 
       final List<dynamic> jsonData = jsonDecode(response.body);
 
-      // Debug print
-      print('Raw JSON response: $jsonData');
-
       // Handle empty response
       if (jsonData.isEmpty) {
         return [];
       }
-      // Print JSON data for debugging
-      print('\n=== Raw JSON Data ===');
-      print(jsonEncode(jsonData));
-
-      print('\n=== JSON Data Before Parsing ===');
-      for (var json in jsonData) {
-        print('Raw item: $json');
-        print('Class Data:');
-        print('Title: ${json?['title'] ?? 'N/A'}');
-        print('Subtitle: ${json?['subtitle'] ?? 'N/A'}');
-        print('Credits: ${json?['sks'] ?? 'N/A'}');
-        print('Semester: ${json?['semester'] ?? 'N/A'}');
-        print('Room: ${json?['room'] ?? 'N/A'}');
-        print('Section: ${json?['class_section'] ?? 'N/A'}');
-        print('Lecturer: ${json?['users']?['lecturer_name'] ?? 'N/A'}');
-        print('-------------------');
-      }
-
       final parsedClasses = jsonData
           .map((json) {
             try {
               return ClassModel.fromJson(json);
             } catch (e) {
               print('Error parsing class data: $e');
-              print('Problematic data: $json');
               return null;
             }
           })
           .whereType<ClassModel>()
           .toList();
-
-      // Print parsed data for debugging
-      print('\n=== Parsed Class Objects ===');
-      for (var cls in parsedClasses) {
-        print('Parsed Class:');
-        print('Title: ${cls.title}');
-        print('Subtitle: ${cls.subtitle}');
-        print('Credits: ${cls.credits}');
-        print('Semester: ${cls.semester}');
-        print('Room: ${cls.room}');
-        print('Section: ${cls.classSection}');
-        print('Lecturer: ${cls.lecturer}');
-        print('-------------------');
-      }
-
       return parsedClasses;
     } catch (e) {
       print('Error in getClasses: $e');
@@ -81,21 +44,86 @@ class ClassService {
     }
   }
 
-  Future<Map<String, dynamic>> getClassAnnouncements(String classId) async {
+  Future<List<Map<String, dynamic>>> getClassAnnouncements(
+      String classId, String userId) async {
     try {
-      final response = await http.get(
-        Uri.parse(
-            '${ApiConstants.restApiBaseUrl}/materials?select=material_id,material_title:title,description,file_url,date,has_task,has_attachment,attachment_url,created_at,...classes!inner(class_name:title,...class_enrollments!inner())&class_enrollments.student_id=eq.$classId&order=created_at.desc'),
+      final response = await http.post(
+        Uri.parse('${ApiConstants.restApiBaseUrl}/rpc/get_student_materials'),
         headers: ApiConstants.defaultHeaders,
+        body: jsonEncode({'student_uuid': userId, 'class_uuid': classId}),
       );
 
       if (response.statusCode != 200) {
         throw Exception('Failed to get class detail');
       }
 
-      return jsonDecode(response.body);
+      final List<dynamic> jsonData = jsonDecode(response.body);
+      return jsonData.cast<Map<String, dynamic>>();
     } catch (e) {
       throw Exception('Failed to get class detail: $e');
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getClassAttendances(
+      String classId, String userId) async {
+    try {
+      final response = await http.post(
+        Uri.parse('${ApiConstants.restApiBaseUrl}/rpc/get_student_attendances'),
+        headers: ApiConstants.defaultHeaders,
+        body: jsonEncode({'student_uuid': userId, 'class_uuid': classId}),
+      );
+
+      if (response.statusCode != 200) {
+        throw Exception('Failed to get class detail');
+      }
+
+      // Parse as List<Map<String, dynamic>>
+      final List<dynamic> jsonData = jsonDecode(response.body);
+      return jsonData.cast<Map<String, dynamic>>();
+    } catch (e) {
+      throw Exception('Failed to get class attendances: $e');
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getClassAssignments(
+      String classId, String userId) async {
+    try {
+      final response = await http.post(
+        Uri.parse('${ApiConstants.restApiBaseUrl}/rpc/get_student_assignments'),
+        headers: ApiConstants.defaultHeaders,
+        body: jsonEncode({'student_uuid': userId, 'class_uuid': classId}),
+      );
+
+      if (response.statusCode != 200) {
+        throw Exception('Failed to get class assignments');
+      }
+
+      final List<dynamic> jsonData = jsonDecode(response.body);
+      return jsonData.cast<Map<String, dynamic>>();
+    } catch (e) {
+      throw Exception('Failed to get class assignments: $e');
+    }
+  }
+
+  Future<Map<String, dynamic>> getClassDetails(String classId) async {
+    try {
+      final response = await http.post(
+        Uri.parse('${ApiConstants.restApiBaseUrl}/rpc/get_class_details'),
+        headers: ApiConstants.defaultHeaders,
+        body: jsonEncode({'class_uuid': classId}),
+      );
+
+      if (response.statusCode != 200) {
+        throw Exception('Failed to get class details');
+      }
+
+      final List<dynamic> jsonData = jsonDecode(response.body);
+      // Return the first item from the list, or an empty map if the list is empty
+      return jsonData.isNotEmpty
+          ? Map<String, dynamic>.from(jsonData.first)
+          : {};
+    } catch (e) {
+      throw Exception('Failed to get class details: $e');
     }
   }
 

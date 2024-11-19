@@ -138,3 +138,34 @@ CREATE TABLE public.class_enrollments (
 -- Create indexes for better performance
 CREATE INDEX idx_class_enrollments_student ON public.class_enrollments(student_id);
 CREATE INDEX idx_class_enrollments_class ON public.class_enrollments(class_id);
+
+-- Create function to get student attendances
+CREATE OR REPLACE FUNCTION get_student_attendances(
+    student_uuid TEXT,
+    class_uuid TEXT
+)
+RETURNS TABLE (
+    attendance_date TIMESTAMPTZ,
+    attendance_status TEXT,
+    class_title TEXT,
+    class_subtitle TEXT,
+    schedule_day TEXT,
+    schedule_time TEXT
+) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT 
+        a.date AS attendance_date,
+        a.status AS attendance_status,
+        c.title AS class_title,
+        c.subtitle AS class_subtitle,
+        cs.day AS schedule_day,
+        cs.time AS schedule_time
+    FROM attendances a
+    JOIN class_schedules cs ON a.schedule_id = cs.schedule_id
+    JOIN classes c ON cs.class_id = c.class_id
+    WHERE a.student_id = student_uuid::UUID 
+    AND c.class_id = class_uuid::UUID
+    ORDER BY a.date DESC;
+END;
+$$ LANGUAGE plpgsql;

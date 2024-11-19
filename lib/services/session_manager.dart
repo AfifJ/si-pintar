@@ -11,12 +11,10 @@ class SessionManager {
 
   static Future<void> saveLoginSession({
     required String userId,
-    required String email,
   }) async {
     final prefs = await _getPrefs();
     await prefs.setBool(KEY_LOGIN_STATE, true);
     await prefs.setString(KEY_USER_ID, userId);
-    await prefs.setString(KEY_USER_EMAIL, email);
   }
 
   static Future<void> clearSession() async {
