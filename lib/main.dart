@@ -4,10 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:si_pintar/screen/auth/login_page.dart';
 import 'package:si_pintar/screen/home/home_page.dart';
 import 'package:si_pintar/services/session_manager.dart';
-import 'package:sqflite/sqflite.dart';
+import 'package:onesignal_flutter/onesignal_flutter.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  OneSignal.Debug.setLogLevel(OSLogLevel.verbose);
+  OneSignal.initialize("07828ff3-1ccf-48ba-96c8-ea6fb514390e");
+  OneSignal.Notifications.requestPermission(true);
   runApp(const MyApp());
 }
 

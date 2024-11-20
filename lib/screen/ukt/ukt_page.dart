@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:si_pintar/services/conversion/convert_currency.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 class UktPage extends StatefulWidget {
   const UktPage({super.key});
@@ -19,6 +20,10 @@ class _UktPageState extends State<UktPage> {
 
   // Add this map
   final List<String> _exchangeRates = ['IDR', 'USD', 'EUR', 'SGD', 'MYR'];
+
+  // Add this field
+  final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
+      FlutterLocalNotificationsPlugin();
 
   // Update to use async conversion
   Future<void> _convertCurrency(double amount) async {
@@ -65,7 +70,47 @@ class _UktPageState extends State<UktPage> {
     }
   }
 
+  // Add this method to initialize notifications
+  Future<void> _initializeNotifications() async {
+    const AndroidInitializationSettings initializationSettingsAndroid =
+        AndroidInitializationSettings('@mipmap/ic_launcher');
+
+    const DarwinInitializationSettings initializationSettingsIOS =
+        DarwinInitializationSettings();
+
+    const InitializationSettings initializationSettings =
+        InitializationSettings(
+      android: initializationSettingsAndroid,
+      iOS: initializationSettingsIOS,
+    );
+
+    await flutterLocalNotificationsPlugin.initialize(initializationSettings);
+  }
+
+  // Add this method to show notification
+  Future<void> _showNotification() async {
+    const AndroidNotificationDetails androidPlatformChannelSpecifics =
+        AndroidNotificationDetails(
+      'payment_channel', // channel id
+      'Payment Notifications', // channel name
+      importance: Importance.max,
+      priority: Priority.high,
+      showWhen: false,
+    );
+
+    const NotificationDetails platformChannelSpecifics =
+        NotificationDetails(android: androidPlatformChannelSpecifics);
+
+    await flutterLocalNotificationsPlugin.show(
+      0, // notification id
+      'Pembayaran UKT Berhasil', // notification title
+      'Terima kasih telah melakukan pembayaran UKT sebesar $_currentCurrency', // notification body
+      platformChannelSpecifics,
+    );
+  }
+
   void _showPaymentSuccessDialog() {
+    _showNotification(); // Add this line to show notification
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -119,6 +164,24 @@ class _UktPageState extends State<UktPage> {
                     color: Colors.black87,
                   ),
                 ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Terima kasih telah melakukan pembayaran UKT tepat waktu.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.black54,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Silakan cek email Anda untuk bukti pembayaran.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.black54,
+                  ),
+                ),
                 const SizedBox(height: 20),
                 SizedBox(
                   width: double.infinity,
@@ -154,7 +217,7 @@ class _UktPageState extends State<UktPage> {
   @override
   void initState() {
     super.initState();
-    // Initialize currency conversion
+    _initializeNotifications();
     _convertCurrency(double.parse(_baseCurrency));
   }
 
