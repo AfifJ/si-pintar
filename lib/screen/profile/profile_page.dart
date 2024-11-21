@@ -53,7 +53,7 @@ class _ProfilePageState extends State<ProfilePage> {
       if (!mounted) return;
 
       setState(() {
-        user = userData.toJson();
+        user = userData;
         _isLoading = false;
       });
     } catch (e) {
@@ -326,7 +326,7 @@ class _ProfilePageState extends State<ProfilePage> {
               const SizedBox(height: 16),
               // Username editing section
               _buildSettingsCard(
-                  "Username",
+                  "Nama Lengkap",
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -371,12 +371,36 @@ class _ProfilePageState extends State<ProfilePage> {
                               ElevatedButton(
                                 onPressed: () {
                                   if (_formKey.currentState!.validate()) {
-                                    // TODO: Implement update username logic
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                          content: Text(
-                                              'Username berhasil diperbarui')),
-                                    );
+                                    () async {
+                                      try {
+                                        final userId = await SessionManager
+                                            .getCurrentUserId();
+                                        final success =
+                                            await _userService.updateFullName(
+                                          userId!,
+                                          _usernameController.text,
+                                        );
+                                        if (success) {
+                                          await _loadUser();
+                                          ScaffoldMessenger.of(context)
+                                              .showSnackBar(
+                                            const SnackBar(
+                                                content: Text(
+                                                    'Nama berhasil diperbarui')),
+                                          );
+                                        }
+                                      } catch (e) {
+                                        ScaffoldMessenger.of(context)
+                                            .showSnackBar(
+                                          SnackBar(
+                                            content: Text(e.toString()),
+                                            backgroundColor: Colors.red,
+                                          ),
+                                        );
+                                        return;
+                                      }
+                                    }();
+
                                     setState(() {
                                       _isEditingUsername = false;
                                     });
@@ -447,12 +471,88 @@ class _ProfilePageState extends State<ProfilePage> {
                               const SizedBox(height: 8),
                               ElevatedButton(
                                 onPressed: () {
+                                  Future<void> _updatePassword() async {
+                                    if (_currentPasswordController
+                                            .text.isEmpty ||
+                                        _newPasswordController.text.isEmpty ||
+                                        _confirmPasswordController
+                                            .text.isEmpty) {
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        const SnackBar(
+                                          content:
+                                              Text('Semua field harus diisi'),
+                                        ),
+                                      );
+                                      return;
+                                    }
+
+                                    try {
+                                      final userId = await SessionManager
+                                          .getCurrentUserId();
+                                      final userData = await _userService
+                                          .getUserFromSession(userId!);
+
+                                      // Try logging in with current password to verify
+                                      await _userService.login(
+                                          userData['email'],
+                                          _currentPasswordController.text);
+                                    } catch (e) {
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        const SnackBar(
+                                          content: Text(
+                                              'Password lama tidak sesuai'),
+                                        ),
+                                      );
+                                      return;
+                                    }
+
+                                    if (_newPasswordController.text !=
+                                        _confirmPasswordController.text) {
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        const SnackBar(
+                                          content: Text(
+                                              'Password baru dan konfirmasi tidak cocok'),
+                                        ),
+                                      );
+                                      return;
+                                    }
+
+                                    // Verify current password
+
+                                    try {
+                                      final userId = await SessionManager
+                                          .getCurrentUserId();
+                                      await _userService.updatePassword(
+                                          userId!, _newPasswordController.text);
+
+                                      _currentPasswordController.clear();
+                                      _newPasswordController.clear();
+                                      _confirmPasswordController.clear();
+
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        const SnackBar(
+                                            content: Text(
+                                                'Password berhasil diperbarui')),
+                                      );
+                                    } catch (e) {
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                              'Gagal memperbarui password: $e'),
+                                        ),
+                                      );
+                                      return;
+                                    }
+                                  }
+
+                                  _updatePassword();
                                   // TODO: Implement update password logic
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                        content: Text(
-                                            'Password berhasil diperbarui')),
-                                  );
+
                                   setState(() {
                                     _isEditingPassword = false;
                                   });

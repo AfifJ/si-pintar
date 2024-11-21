@@ -13,7 +13,7 @@ class ProfileEditPage extends StatefulWidget {
 
 class _ProfileEditPageState extends State<ProfileEditPage> {
   final _formKey = GlobalKey<FormState>();
-  final _usernameController = TextEditingController();
+  final _fullNameController = TextEditingController();
   final _currentPasswordController = TextEditingController();
   final _newPasswordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
@@ -43,8 +43,8 @@ class _ProfileEditPageState extends State<ProfileEditPage> {
     if (userId != null) {
       final userData = await _userService.getUserFromSession(userId);
       setState(() {
-        user = userData.toJson();
-        _usernameController.text = user?['username'] ?? '';
+        user = userData;
+        _fullNameController.text = user?['full_name'] ?? '';
       });
     }
   }
@@ -95,14 +95,14 @@ class _ProfileEditPageState extends State<ProfileEditPage> {
               ),
               const SizedBox(height: 32),
               TextFormField(
-                controller: _usernameController,
+                controller: _fullNameController,
                 decoration: const InputDecoration(
-                  labelText: 'Username Baru',
+                  labelText: 'Nama Lengkap',
                   border: OutlineInputBorder(),
                 ),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
-                    return 'Username tidak boleh kosong';
+                    return 'Nama lengkap tidak boleh kosong';
                   }
                   return null;
                 },
@@ -133,7 +133,7 @@ class _ProfileEditPageState extends State<ProfileEditPage> {
 
   @override
   void dispose() {
-    _usernameController.dispose();
+    _fullNameController.dispose();
     _currentPasswordController.dispose();
     _newPasswordController.dispose();
     _confirmPasswordController.dispose();

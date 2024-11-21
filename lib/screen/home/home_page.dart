@@ -37,6 +37,9 @@ class _HomePageState extends State<HomePage> {
   // Add PageController
   final PageController _pageController = PageController();
 
+  // Add this to track if the page is mounted
+  bool _mounted = true;
+
   @override
   void initState() {
     super.initState();
@@ -48,6 +51,7 @@ class _HomePageState extends State<HomePage> {
 
   @override
   void dispose() {
+    _mounted = false;
     _pageController.dispose();
     super.dispose();
   }
@@ -71,7 +75,8 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _loadHomeData() async {
-    if (!mounted) return;
+    // Check if widget is mounted before setting state
+    if (!_mounted) return;
 
     setState(() {
       _isLoading = true;
@@ -80,30 +85,33 @@ class _HomePageState extends State<HomePage> {
 
     try {
       final userId = await SessionManager.getCurrentUserId();
-      if (!mounted) return;
+      // Check mounted again after async operation
+      if (!_mounted) return;
 
       if (userId != null) {
         final userService = UserService();
-        _user = await userService.getUserFromSession(userId.toString());
-        if (!mounted) return;
+        final userData =
+            await userService.getUserFromSession(userId.toString());
+        _user = User.fromJson(userData);
+        if (!_mounted) return;
 
         try {
           final classesResponse = await _classService.getClasses(_user!.userId);
-          if (!mounted) return;
+          if (!_mounted) return;
 
           setState(() {
             _classes = classesResponse;
           });
         } catch (e) {
           print('Error fetching classes: $e');
-          if (!mounted) return;
+          if (!_mounted) return;
           setState(() {
             _classes = [];
           });
         }
       }
 
-      if (!mounted) return;
+      if (!_mounted) return;
       setState(() {
         _isLoading = false;
       });
@@ -111,7 +119,7 @@ class _HomePageState extends State<HomePage> {
       print('Error: $e');
       print('Stack trace: $stackTrace');
 
-      if (!mounted) return;
+      if (!_mounted) return;
       setState(() {
         _isLoading = false;
         _error = 'Error: $e\n\nStack Trace:\n${stackTrace.toString()}';
@@ -569,14 +577,17 @@ class _HomePageState extends State<HomePage> {
       body: PageView(
         controller: _pageController,
         onPageChanged: (index) {
-          setState(() {
-            _selectedIndex = index;
-          });
+          if (_mounted) {
+            // Add mounted check here
+            setState(() {
+              _selectedIndex = index;
+            });
+          }
         },
         children: [
           _buildHomeContent(),
-          SchedulePage(),
-          ProfilePage(),
+          SchedulePage(), // Add const
+          const ProfilePage(), // Add const
         ],
       ),
       bottomNavigationBar: Container(

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:si_pintar/models/user.dart';
+// import 'package:si_pintar/models/user.dart';
+import 'package:si_pintar/screen/auth/register_page.dart';
 import 'package:si_pintar/screen/home/home_page.dart';
 import 'package:si_pintar/services/remote/user_service.dart';
 import 'package:si_pintar/services/session_manager.dart';
@@ -28,13 +29,10 @@ class _LoginPageState extends State<LoginPage> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isLoading = false;
+  String? _errorMessage;
   final _userService = UserService();
 
-  // Add this variable to store error message
-  String? _errorMessage;
-
   Future<void> _login() async {
-    // Reset error message when attempting new login
     setState(() {
       _errorMessage = null;
       _isLoading = true;
@@ -46,13 +44,13 @@ class _LoginPageState extends State<LoginPage> {
     }
 
     try {
-      final User user = await _userService.login(
+      final String userId = await _userService.login(
         _emailController.text,
         _passwordController.text,
       );
 
       await SessionManager.saveLoginSession(
-        userId: user.userId,
+        userId: userId,
       );
 
       if (mounted) {
@@ -79,165 +77,174 @@ class _LoginPageState extends State<LoginPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(),
-      body: RefreshIndicator(
-        onRefresh: () async {
-          // Refresh logic if needed
-        },
-        child: SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Logo and Header Section
-                Center(
-                  child: Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.blue.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(100),
+      body: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Logo and Header Section
+              Center(
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(100),
+                  ),
+                  child: _isLoading
+                      ? const ShimmerCircle(size: 120)
+                      : ClipRRect(
+                          borderRadius: BorderRadius.circular(100),
+                          child: Image.network(
+                            "http://unsplash.it/200/200",
+                            width: 120,
+                            height: 120,
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // Title Section
+              Center(
+                child: Column(
+                  children: [
+                    const Text(
+                      "Login Akun",
+                      style: TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                    child: _isLoading
-                        ? const ShimmerCircle(size: 120)
-                        : ClipRRect(
-                            borderRadius: BorderRadius.circular(100),
-                            child: Image.network(
-                              "http://unsplash.it/200/200",
-                              width: 120,
-                              height: 120,
-                              fit: BoxFit.cover,
+                    const SizedBox(height: 8),
+                    Text(
+                      "Masukkan akun dan password yang telah disediakan",
+                      style: TextStyle(
+                        color: Colors.grey[600],
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 32),
+
+              // Login Form
+              Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildInputField(
+                      label: "Email",
+                      controller: _emailController,
+                      hint: "Masukkan email",
+                      type: "email",
+                      icon: Icons.email_outlined,
+                      isPassword: false,
+                    ),
+                    const SizedBox(height: 16),
+                    _buildInputField(
+                      label: "Password",
+                      controller: _passwordController,
+                      hint: "Masukkan password",
+                      icon: Icons.lock_outline,
+                      isPassword: true,
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Add error message widget
+                    if (_errorMessage != null) ...[
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            vertical: 8, horizontal: 12),
+                        decoration: BoxDecoration(
+                          color: Colors.red.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                          border:
+                              Border.all(color: Colors.red.withOpacity(0.3)),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.error_outline,
+                                color: Colors.red, size: 20),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                _errorMessage!,
+                                style: TextStyle(color: Colors.red),
+                              ),
                             ),
-                          ),
-                  ),
-                ),
-                const SizedBox(height: 24),
-
-                // Title Section
-                Center(
-                  child: Column(
-                    children: [
-                      const Text(
-                        "Login Akun",
-                        style: TextStyle(
-                          fontSize: 28,
-                          fontWeight: FontWeight.bold,
+                          ],
                         ),
                       ),
-                      const SizedBox(height: 8),
-                      Text(
-                        "Masukkan akun dan password yang telah disediakan",
-                        style: TextStyle(
-                          color: Colors.grey[600],
-                          fontSize: 14,
-                        ),
-                      ),
+                      const SizedBox(height: 16),
                     ],
-                  ),
-                ),
-                const SizedBox(height: 32),
 
-                // Login Form
-                Form(
-                  key: _formKey,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildInputField(
-                        "Email",
-                        _emailController,
-                        "Masukkan email",
-                        Icons.email_outlined,
-                        false,
-                      ),
-                      const SizedBox(height: 16),
-                      _buildInputField(
-                        "Password",
-                        _passwordController,
-                        "Masukkan password",
-                        Icons.lock_outline,
-                        true,
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Add error message widget
-                      if (_errorMessage != null) ...[
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              vertical: 8, horizontal: 12),
-                          decoration: BoxDecoration(
-                            color: Colors.red.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(8),
-                            border:
-                                Border.all(color: Colors.red.withOpacity(0.3)),
+                    // Login Button
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: _isLoading ? null : _login,
+                        style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          backgroundColor: Colors.blue,
+                          disabledBackgroundColor: Colors.grey[300],
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
                           ),
-                          child: Row(
-                            children: [
-                              Icon(Icons.error_outline,
-                                  color: Colors.red, size: 20),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  _errorMessage!,
-                                  style: TextStyle(color: Colors.red),
+                        ),
+                        child: _isLoading
+                            ? const SizedBox(
+                                height: 20,
+                                width: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                      Colors.white),
+                                ),
+                              )
+                            : const Text(
+                                'Login',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
                                 ),
                               ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                      ],
-
-                      // Login Button
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          onPressed: _isLoading ? null : _login,
-                          style: ElevatedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            backgroundColor: Colors.blue,
-                            disabledBackgroundColor: Colors.grey[300],
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          child: _isLoading
-                              ? const SizedBox(
-                                  height: 20,
-                                  width: 20,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    valueColor: AlwaysStoppedAnimation<Color>(
-                                        Colors.white),
-                                  ),
-                                )
-                              : const Text(
-                                  'Login',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                        ),
                       ),
-                    ],
-                  ),
+                    ),
+
+                    // Register link
+                    TextButton(
+                      onPressed: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => const RegisterPage(),
+                          ),
+                        );
+                      },
+                      child: const Text('Belum punya akun? Register'),
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
     );
   }
 
-  Widget _buildInputField(
-    String label,
-    TextEditingController controller,
-    String hint,
-    IconData icon,
-    bool isPassword,
-  ) {
+  Widget _buildInputField({
+    required String label,
+    required TextEditingController controller,
+    required String hint,
+    String type = "text",
+    required IconData icon,
+    required bool isPassword,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -252,6 +259,8 @@ class _LoginPageState extends State<LoginPage> {
         TextFormField(
           controller: controller,
           obscureText: isPassword,
+          keyboardType:
+              type == "email" ? TextInputType.emailAddress : TextInputType.text,
           decoration: InputDecoration(
             hintText: hint,
             prefixIcon: Icon(icon, color: Colors.grey),
@@ -270,6 +279,12 @@ class _LoginPageState extends State<LoginPage> {
             if (value == null || value.isEmpty) {
               return '$label tidak boleh kosong';
             }
+            if (type == "email") {
+              final emailRegExp = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+              if (!emailRegExp.hasMatch(value)) {
+                return 'Format email tidak valid';
+              }
+            }
             return null;
           },
         ),
@@ -285,7 +300,6 @@ class _LoginPageState extends State<LoginPage> {
   }
 }
 
-// Add this new widget for skeleton loading
 class ShimmerCircle extends StatelessWidget {
   final double size;
 

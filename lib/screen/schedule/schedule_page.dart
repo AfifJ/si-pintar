@@ -10,18 +10,52 @@ import 'package:si_pintar/services/session_manager.dart';
 import 'package:si_pintar/services/conversion/convert_time.dart';
 
 class SchedulePage extends StatefulWidget {
-  SchedulePage({super.key});
+  const SchedulePage({super.key});
 
   @override
   State<SchedulePage> createState() => _SchedulePageState();
 }
 
-class _SchedulePageState extends State<SchedulePage> {
+class _SchedulePageState extends State<SchedulePage>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _loadUserId();
+      }
+    });
+  }
+
+  Future<void> _loadUserId() async {
+    if (!mounted) return;
+
+    try {
+      final localUserId = await SessionManager.getCurrentUserId();
+      if (!mounted) return;
+
+      if (localUserId != null) {
+        setState(() {
+          userId = localUserId;
+        });
+        await _loadSchedule();
+        await _loadUserData();
+      }
+    } catch (e) {
+      print('Error loading user ID: $e');
+    }
+  }
+
   // final List<ClassModel> jadwalKuliah = (jsonDecode(DummyData.classes) as List)
   //     .map((item) => ClassModel.fromJson(item))
   //     .toList();
 
   final ScheduleService _scheduleService = ScheduleService();
+  final UserService _userService = UserService();
   Map<String, dynamic>? _user;
   String? userId;
 
@@ -52,45 +86,6 @@ class _SchedulePageState extends State<SchedulePage> {
 
   // Add loading state
   bool _isLoading = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadUserId();
-  }
-
-  // ... existing imports ...
-
-// Add timezone constants
-  // Map<String, String> timezones = {
-  //   'Jakarta': 'WIB',
-  //   'Makassar': 'WITA',
-  //   'Jayapura': 'WIT',
-  //   'London': 'GMT',
-  //   'Singapore': 'CST',
-  //   'Tokyo': 'JST',
-  //   'Dubai': 'MSK',
-  //   'New York': 'EDT',
-  //   'Los Angeles': 'PDT',
-  //   'Sydney': 'CST'
-  // };
-
-// Future<String> convertTime(String inputTime, String sourceFormat,
-//     String sourceTimezone, String targetTimezone) async {
-//   // ... existing code ...
-// }
-
-  Future<void> _loadUserId() async {
-    userId = await SessionManager.getCurrentUserId();
-    if (userId != null) {
-      _loadSchedule();
-      final userService = UserService();
-      final userData = await userService.getUserFromSession(userId!);
-      setState(() {
-        _user = userData.toJson();
-      });
-    }
-  }
 
   List<Map<String, dynamic>> jadwalKuliah = [];
 
@@ -267,6 +262,21 @@ class _SchedulePageState extends State<SchedulePage> {
       ),
       isThreeLine: true,
     );
+  }
+
+  Future<void> _loadUserData() async {
+    if (!mounted) return;
+
+    try {
+      final userData = await _userService.getUserFromSession(userId!);
+      if (!mounted) return;
+
+      setState(() {
+        _user = userData;
+      });
+    } catch (e) {
+      print('Error loading user data: $e');
+    }
   }
 
   // Update the build method's body
