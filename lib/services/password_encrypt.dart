@@ -6,3 +6,9 @@ String encryptPassword(String password) {
   final hash = sha256.convert(bytes);
   return hash.toString();
 }
+
+// void main() {
+//   String testPassword = "afif";
+//   print('Original: $testPassword');
+//   print('Encrypted: ${encryptPassword(testPassword)}');
+// }

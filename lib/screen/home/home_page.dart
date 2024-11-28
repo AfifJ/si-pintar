@@ -1,6 +1,4 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:si_pintar/data/dummy_data.dart';
 import 'package:si_pintar/models/activity.dart';
 import 'package:si_pintar/models/class_model.dart';
 import 'package:si_pintar/models/user.dart';
@@ -10,13 +8,12 @@ import 'package:si_pintar/screen/nilai/nilai_page.dart';
 import 'package:si_pintar/screen/profile/profile_page.dart';
 import 'package:si_pintar/screen/schedule/schedule_page.dart';
 import 'package:si_pintar/screen/ukt/ukt_page.dart';
-import 'package:si_pintar/screen/nilai/nilai_page.dart';
 import 'package:intl/intl.dart';
-import 'package:si_pintar/services/conversion/convert_currency.dart';
-import 'package:si_pintar/services/conversion/convert_time.dart';
 import 'package:si_pintar/services/remote/user_service.dart';
 import 'package:si_pintar/services/session_manager.dart';
 import 'package:si_pintar/services/remote/class_service.dart';
+import 'dart:io';
+import 'package:si_pintar/services/database_service.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -33,6 +30,7 @@ class _HomePageState extends State<HomePage> {
   List<ClassModel> _classes = [];
   List<Activity> _activities = [];
   final ClassService _classService = ClassService();
+  String? _profileImagePath;
 
   // Add PageController
   final PageController _pageController = PageController();
@@ -47,6 +45,16 @@ class _HomePageState extends State<HomePage> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkSessionAndLoadData();
     });
+    _loadProfileImage();
+  }
+
+  Future<void> _loadProfileImage() async {
+    final imagePath = await DatabaseService().getProfileImage();
+    if (imagePath != null) {
+      setState(() {
+        _profileImagePath = imagePath;
+      });
+    }
   }
 
   @override
@@ -642,15 +650,42 @@ class _HomePageState extends State<HomePage> {
                       ),
                     ),
                     child: ClipOval(
-                      child: _user?.image_url != null &&
-                              _user!.image_url.isNotEmpty
-                          ? Image.network(
-                              _user!.image_url,
+                      child: _profileImagePath != null
+                          ? Image.file(
+                              File(_profileImagePath!),
                               width: 24,
                               height: 24,
                               fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) {
-                                return Container(
+                            )
+                          : (_user?.image_url != null &&
+                                  _user!.image_url.isNotEmpty
+                              ? Image.network(
+                                  _user!.image_url,
+                                  width: 24,
+                                  height: 24,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (context, error, stackTrace) {
+                                    return Container(
+                                      width: 24,
+                                      height: 24,
+                                      alignment: Alignment.center,
+                                      color: Colors.blue.shade50,
+                                      child: Text(
+                                        _user?.full_name.isNotEmpty == true
+                                            ? _user!.full_name[0].toUpperCase()
+                                            : '?',
+                                        style: TextStyle(
+                                          color: _selectedIndex == 2
+                                              ? Colors.blue.shade700
+                                              : Colors.grey,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                )
+                              : Container(
                                   width: 24,
                                   height: 24,
                                   alignment: Alignment.center,
@@ -667,27 +702,7 @@ class _HomePageState extends State<HomePage> {
                                       fontSize: 14,
                                     ),
                                   ),
-                                );
-                              },
-                            )
-                          : Container(
-                              width: 24,
-                              height: 24,
-                              alignment: Alignment.center,
-                              color: Colors.blue.shade50,
-                              child: Text(
-                                _user?.full_name.isNotEmpty == true
-                                    ? _user!.full_name[0].toUpperCase()
-                                    : '?',
-                                style: TextStyle(
-                                  color: _selectedIndex == 2
-                                      ? Colors.blue.shade700
-                                      : Colors.grey,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 14,
-                                ),
-                              ),
-                            ),
+                                )),
                     ),
                   );
                 },

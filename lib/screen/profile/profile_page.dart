@@ -1,12 +1,10 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:si_pintar/data/dummy_data.dart';
 import 'package:si_pintar/models/user.dart';
 import 'package:si_pintar/screen/profile/kesan_pesan_page.dart';
-import 'package:si_pintar/screen/profile/profile_edit.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:si_pintar/screen/profile/update_password.dart';
 import 'package:si_pintar/services/remote/user_service.dart';
 import 'package:si_pintar/services/session_manager.dart';
 import 'package:si_pintar/screen/auth/login_page.dart';
@@ -31,11 +29,14 @@ class _ProfilePageState extends State<ProfilePage> {
   bool _isEditingPassword = false;
   bool _isLoading = true;
   final DatabaseService _databaseService = DatabaseService();
+  final ImagePicker _picker = ImagePicker();
+  String? _profileImagePath;
 
   @override
   void initState() {
     super.initState();
     _loadUser();
+    _loadProfileImage();
   }
 
   Future<void> _loadUser() async {
@@ -60,6 +61,15 @@ class _ProfilePageState extends State<ProfilePage> {
       if (!mounted) return;
       setState(() {
         _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _loadProfileImage() async {
+    final imagePath = await _databaseService.getProfileImage();
+    if (imagePath != null) {
+      setState(() {
+        _profileImagePath = imagePath;
       });
     }
   }
@@ -194,6 +204,16 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
+  Future<void> _pickImage(ImageSource source) async {
+    final pickedFile = await _picker.pickImage(source: source);
+    if (pickedFile != null) {
+      setState(() {
+        _profileImagePath = pickedFile.path;
+      });
+      await _databaseService.saveProfileImage(pickedFile.path);
+    }
+  }
+
   Widget _buildSkeletonBox({double? width, double height = 20}) {
     return Container(
       width: width ?? double.infinity,
@@ -233,17 +253,24 @@ class _ProfilePageState extends State<ProfilePage> {
       height: 100,
       child: Row(
         children: [
-          CircleAvatar(
-            radius: 50,
-            backgroundImage: NetworkImage(user?['image_url'] ?? ''),
-            onBackgroundImageError: (_, __) => Text(
-              (user?['full_name'] as String?)?.isNotEmpty == true
-                  ? (user?['full_name'] as String).substring(0, 1).toUpperCase()
-                  : "?",
-              style: const TextStyle(fontSize: 32, color: Colors.white),
+          GestureDetector(
+            onTap: () => _showImageSourceActionSheet(),
+            child: CircleAvatar(
+              radius: 50,
+              backgroundImage: _profileImagePath != null
+                  ? FileImage(File(_profileImagePath!))
+                  : NetworkImage(user?['image_url'] ?? '') as ImageProvider,
+              onBackgroundImageError: (_, __) => Text(
+                (user?['full_name'] as String?)?.isNotEmpty == true
+                    ? (user?['full_name'] as String)
+                        .substring(0, 1)
+                        .toUpperCase()
+                    : "?",
+                style: const TextStyle(fontSize: 32, color: Colors.white),
+              ),
+              backgroundColor: Colors.blue,
+              child: null,
             ),
-            backgroundColor: Colors.blue,
-            child: null,
           ),
           const SizedBox(width: 20),
           Column(
@@ -266,6 +293,36 @@ class _ProfilePageState extends State<ProfilePage> {
           ),
         ],
       ),
+    );
+  }
+
+  void _showImageSourceActionSheet() {
+    showModalBottomSheet(
+      context: context,
+      builder: (BuildContext context) {
+        return SafeArea(
+          child: Wrap(
+            children: <Widget>[
+              ListTile(
+                leading: const Icon(Icons.photo_library),
+                title: const Text('Gallery'),
+                onTap: () {
+                  _pickImage(ImageSource.gallery);
+                  Navigator.of(context).pop();
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_camera),
+                title: const Text('Camera'),
+                onTap: () {
+                  _pickImage(ImageSource.camera);
+                  Navigator.of(context).pop();
+                },
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 

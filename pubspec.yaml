@@ -45,6 +45,8 @@ dependencies:
   onesignal_flutter: ^5.2.7
   flutter_local_notifications: ^18.0.1
   crypto: ^3.0.6
+  url_launcher: ^6.3.1
+  supabase: ^2.6.0
   
 dev_dependencies:
   flutter_test:

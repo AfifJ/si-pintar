@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-// import 'package:si_pintar/models/user.dart';
 import 'package:si_pintar/screen/auth/register_page.dart';
+// import 'package:si_pintar/models/user.dart';
+// import 'package:si_pintar/screen/auth/register_page.dart';
 import 'package:si_pintar/screen/home/home_page.dart';
 import 'package:si_pintar/services/remote/user_service.dart';
 import 'package:si_pintar/services/session_manager.dart';

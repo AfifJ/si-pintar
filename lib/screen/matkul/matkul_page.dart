@@ -1,5 +1,6 @@
 // import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 // import 'package:si_pintar/data/dummy_data.dart';
 import 'package:si_pintar/screen/matkul/presensi_dialog.dart';
 import 'package:si_pintar/screen/matkul/submit_task_page.dart';
@@ -123,8 +124,66 @@ class _MatkulPageState extends State<MatkulPage> with TickerProviderStateMixin {
                     Text(announcement['description'] ?? ''),
                     if (announcement['has_attachment'] == true)
                       TextButton.icon(
-                        onPressed: () {
-                          // TODO: Handle download using announcement['attachment_url']
+                        onPressed: () async {
+                          try {
+                            // First, ensure the URL is properly formatted
+                            final urlString = announcement['file_url'];
+                            if (urlString == null || urlString.isEmpty) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('URL file tidak valid'),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                              return;
+                            }
+
+                            // Create the URI and handle potential formatting issues
+                            final Uri url = Uri.parse(urlString);
+                            if (url == null) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Format URL tidak valid'),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                              return;
+                            }
+
+                            // Check if the URL can be launched
+                            if (await canLaunchUrl(url)) {
+                              // Launch the URL with proper configuration
+                              await launchUrl(
+                                url,
+                                mode: LaunchMode.externalApplication,
+                                webViewConfiguration:
+                                    const WebViewConfiguration(
+                                  enableJavaScript: true,
+                                  enableDomStorage: true,
+                                ),
+                              );
+                            } else {
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content:
+                                        Text('Tidak dapat membuka: $urlString'),
+                                    backgroundColor: Colors.red,
+                                  ),
+                                );
+                              }
+                            }
+                          } catch (e) {
+                            if (context.mounted) {
+                              print(e.toString());
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('Error: ${e.toString()}'),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                            }
+                          }
                         },
                         icon: const Icon(Icons.file_download, size: 18),
                         label: const Text('Unduh Materi'),

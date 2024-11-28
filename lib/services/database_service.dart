@@ -41,6 +41,13 @@ class DatabaseService {
         nilai_angka REAL DEFAULT 4.0
       )
     ''');
+
+    await db.execute('''
+      CREATE TABLE profile_images(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        image_path TEXT NOT NULL
+      )
+    ''');
   }
 
   // CRUD Operations
@@ -79,5 +86,23 @@ class DatabaseService {
   Future<int> deleteAllMataKuliah() async {
     final db = await database;
     return await db.delete('mata_kuliah');
+  }
+
+  Future<void> saveProfileImage(String imagePath) async {
+    final db = await database;
+    await db.insert(
+      'profile_images',
+      {'image_path': imagePath},
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  Future<String?> getProfileImage() async {
+    final db = await database;
+    final List<Map<String, dynamic>> maps = await db.query('profile_images');
+    if (maps.isNotEmpty) {
+      return maps.first['image_path'] as String?;
+    }
+    return null;
   }
 }
